@@ -6,8 +6,8 @@ import (
 
 	"golang.org/x/tools/go/packages"
 
-	"github.com/golangci/golangci-lint/pkg/lint/linter"
-	"github.com/golangci/golangci-lint/pkg/result"
+	"github.com/golangci/golangci-lint/v2/pkg/lint/linter"
+	"github.com/golangci/golangci-lint/v2/pkg/result"
 )
 
 type IllTypedError struct {
@@ -15,7 +15,7 @@ type IllTypedError struct {
 }
 
 func (e *IllTypedError) Error() string {
-	return fmt.Sprintf("errors in package: %v", e.Pkg.Errors)
+	return fmt.Sprintf("IllTypedError: errors in package: %v", e.Pkg.Errors)
 }
 
 func BuildIssuesFromIllTypedError(errs []error, lintCtx *linter.Context) ([]result.Issue, error) {

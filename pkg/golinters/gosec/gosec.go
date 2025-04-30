@@ -16,10 +16,10 @@ import (
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/packages"
 
-	"github.com/golangci/golangci-lint/pkg/config"
-	"github.com/golangci/golangci-lint/pkg/goanalysis"
-	"github.com/golangci/golangci-lint/pkg/lint/linter"
-	"github.com/golangci/golangci-lint/pkg/result"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	"github.com/golangci/golangci-lint/v2/pkg/goanalysis"
+	"github.com/golangci/golangci-lint/v2/pkg/lint/linter"
+	"github.com/golangci/golangci-lint/v2/pkg/result"
 )
 
 const linterName = "gosec"
@@ -62,7 +62,7 @@ func New(settings *config.GoSecSettings) *goanalysis.Linter {
 	).WithContextSetter(func(lintCtx *linter.Context) {
 		analyzer.Run = func(pass *analysis.Pass) (any, error) {
 			// The `gosecAnalyzer` is here because of concurrency issue.
-			gosecAnalyzer := gosec.NewAnalyzer(conf, true, settings.ExcludeGenerated, false, settings.Concurrency, logger)
+			gosecAnalyzer := gosec.NewAnalyzer(conf, true, false, false, settings.Concurrency, logger)
 
 			gosecAnalyzer.LoadRules(ruleDefinitions.RulesInfo())
 			gosecAnalyzer.LoadAnalyzers(analyzerDefinitions.AnalyzersInfo())

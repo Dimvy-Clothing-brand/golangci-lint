@@ -16,7 +16,7 @@ module.exports = {
     siteAuthor: `@golangci`,
     siteImage: `/logo.png`,
     siteLanguage: `en`,
-    themeColor: `#7159c1`,
+    themeColor: `#59c1ce`,
     basePath,
     footer: `© ${new Date().getFullYear()}`,
   },
@@ -97,7 +97,6 @@ module.exports = {
         siteUrl: siteUrl,
       },
     },
-    `gatsby-plugin-offline`,
     {
       resolve: "gatsby-plugin-react-svg",
       options: {

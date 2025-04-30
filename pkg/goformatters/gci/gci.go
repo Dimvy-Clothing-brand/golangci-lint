@@ -2,16 +2,15 @@ package gci
 
 import (
 	"context"
-	"fmt"
 
 	gcicfg "github.com/daixiang0/gci/pkg/config"
 	"github.com/daixiang0/gci/pkg/gci"
 	"github.com/daixiang0/gci/pkg/log"
 	"github.com/ldez/grignotin/gomod"
 
-	"github.com/golangci/golangci-lint/pkg/config"
-	gcicfgi "github.com/golangci/golangci-lint/pkg/goformatters/gci/internal/config"
-	"github.com/golangci/golangci-lint/pkg/goformatters/internal"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	gcicfgi "github.com/golangci/golangci-lint/v2/pkg/goformatters/gci/internal/config"
+	"github.com/golangci/golangci-lint/v2/pkg/goformatters/internal"
 )
 
 const Name = "gci"
@@ -33,20 +32,14 @@ func New(settings *config.GciSettings) (*Formatter, error) {
 		Cfg: gcicfg.BoolConfig{
 			NoInlineComments: settings.NoInlineComments,
 			NoPrefixComments: settings.NoPrefixComments,
-			SkipGenerated:    settings.SkipGenerated,
 			CustomOrder:      settings.CustomOrder,
 			NoLexOrder:       settings.NoLexOrder,
+
+			// Should be managed with `formatters.exclusions.generated`.
+			SkipGenerated: false,
 		},
 		SectionStrings: settings.Sections,
 		ModPath:        modPath,
-	}
-
-	if settings.LocalPrefixes != "" {
-		cfg.SectionStrings = []string{
-			"standard",
-			"default",
-			fmt.Sprintf("prefix(%s)", settings.LocalPrefixes),
-		}
 	}
 
 	parsedCfg, err := cfg.Parse()

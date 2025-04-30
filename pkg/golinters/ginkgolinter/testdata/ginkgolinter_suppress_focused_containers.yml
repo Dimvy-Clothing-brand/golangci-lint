@@ -1,3 +1,6 @@
-linters-settings:
-  ginkgolinter:
-    forbid-focus-container: true
+version: "2"
+
+linters:
+  settings:
+    ginkgolinter:
+      forbid-focus-container: true

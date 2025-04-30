@@ -1,18 +1,24 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/golangci/golangci-lint/pkg/config"
-	"github.com/golangci/golangci-lint/pkg/exitcodes"
-	"github.com/golangci/golangci-lint/pkg/fsutils"
-	"github.com/golangci/golangci-lint/pkg/logutils"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	"github.com/golangci/golangci-lint/v2/pkg/exitcodes"
+	"github.com/golangci/golangci-lint/v2/pkg/fsutils"
+	"github.com/golangci/golangci-lint/v2/pkg/logutils"
 )
+
+type pathOptions struct {
+	JSON bool
+}
 
 type configCommand struct {
 	viper *viper.Viper
@@ -20,6 +26,7 @@ type configCommand struct {
 
 	opts       config.LoaderOptions
 	verifyOpts verifyOptions
+	pathOpts   pathOptions
 
 	buildInfo BuildInfo
 
@@ -53,14 +60,16 @@ func newConfigCommand(log logutils.Log, info BuildInfo) *configCommand {
 		SilenceErrors:     true,
 	}
 
+	pathCommand := &cobra.Command{
+		Use:               "path",
+		Short:             "Print used config path",
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE:              c.executePath,
+	}
+
 	configCmd.AddCommand(
-		&cobra.Command{
-			Use:               "path",
-			Short:             "Print used config path",
-			Args:              cobra.NoArgs,
-			ValidArgsFunction: cobra.NoFileCompletions,
-			Run:               c.executePath,
-		},
+		pathCommand,
 		verifyCommand,
 	)
 
@@ -74,6 +83,9 @@ func newConfigCommand(log logutils.Log, info BuildInfo) *configCommand {
 	verifyFlagSet.StringVar(&c.verifyOpts.schemaURL, "schema", "", color.GreenString("JSON schema URL"))
 	_ = verifyFlagSet.MarkHidden("schema")
 
+	pathFlagSet := pathCommand.Flags()
+	pathFlagSet.BoolVar(&c.pathOpts.JSON, "json", false, color.GreenString("Display as JSON"))
+
 	c.cmd = configCmd
 
 	return c
@@ -84,7 +96,7 @@ func (c *configCommand) preRunE(cmd *cobra.Command, args []string) error {
 	// It only needs to know the path of the configuration file.
 	cfg := config.NewDefault()
 
-	loader := config.NewLoader(c.log.Child(logutils.DebugKeyConfigReader), c.viper, cmd.Flags(), c.opts, cfg, args)
+	loader := config.NewLintersLoader(c.log.Child(logutils.DebugKeyConfigReader), c.viper, cmd.Flags(), c.opts, cfg, args)
 
 	err := loader.Load(config.LoadOptions{})
 	if err != nil {
@@ -94,14 +106,29 @@ func (c *configCommand) preRunE(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func (c *configCommand) executePath(cmd *cobra.Command, _ []string) {
+func (c *configCommand) executePath(cmd *cobra.Command, _ []string) error {
 	usedConfigFile := c.getUsedConfig()
+
+	if c.pathOpts.JSON {
+		abs, err := filepath.Abs(usedConfigFile)
+		if err != nil {
+			return err
+		}
+
+		return json.NewEncoder(cmd.OutOrStdout()).Encode(map[string]string{
+			"path":         usedConfigFile,
+			"absolutePath": abs,
+		})
+	}
+
 	if usedConfigFile == "" {
 		c.log.Warnf("No config file detected")
 		os.Exit(exitcodes.NoConfigFileDetected)
 	}
 
 	cmd.Println(usedConfigFile)
+
+	return nil
 }
 
 // getUsedConfig returns the resolved path to the golangci config file,

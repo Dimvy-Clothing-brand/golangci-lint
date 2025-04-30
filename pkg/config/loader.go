@@ -1,26 +1,26 @@
 package config
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"slices"
 
-	"github.com/go-viper/mapstructure/v2"
-	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/golangci/golangci-lint/pkg/exitcodes"
-	"github.com/golangci/golangci-lint/pkg/fsutils"
-	"github.com/golangci/golangci-lint/pkg/goutil"
-	"github.com/golangci/golangci-lint/pkg/logutils"
+	"github.com/golangci/golangci-lint/v2/pkg/fsutils"
+	"github.com/golangci/golangci-lint/v2/pkg/goutil"
+	"github.com/golangci/golangci-lint/v2/pkg/logutils"
 )
 
 var errConfigDisabled = errors.New("config is disabled by --no-config")
+
+const (
+	modeLinters    = "linters"
+	modeFormatters = "formatters"
+)
 
 type LoaderOptions struct {
 	Config   string // Flag only. The path to the golangci config file, as specified with the --config argument.
@@ -33,66 +33,73 @@ type LoadOptions struct {
 }
 
 type Loader struct {
-	opts LoaderOptions
+	*BaseLoader
 
-	viper *viper.Viper
-	fs    *pflag.FlagSet
+	fs *pflag.FlagSet
 
-	log logutils.Log
+	cfg *Config
 
-	cfg  *Config
-	args []string
+	mode string
 }
 
-func NewLoader(log logutils.Log, v *viper.Viper, fs *pflag.FlagSet, opts LoaderOptions, cfg *Config, args []string) *Loader {
+func NewLintersLoader(log logutils.Log, v *viper.Viper, fs *pflag.FlagSet, opts LoaderOptions, cfg *Config, args []string) *Loader {
+	loader := newLoader(log, v, fs, opts, cfg, args)
+	loader.mode = modeLinters
+
+	return loader
+}
+
+func NewFormattersLoader(log logutils.Log, v *viper.Viper, fs *pflag.FlagSet, opts LoaderOptions, cfg *Config, args []string) *Loader {
+	loader := newLoader(log, v, fs, opts, cfg, args)
+	loader.mode = modeFormatters
+
+	return loader
+}
+
+func newLoader(log logutils.Log, v *viper.Viper, fs *pflag.FlagSet, opts LoaderOptions, cfg *Config, args []string) *Loader {
 	return &Loader{
-		opts:  opts,
-		viper: v,
-		fs:    fs,
-		log:   log,
-		cfg:   cfg,
-		args:  args,
+		BaseLoader: NewBaseLoader(log, v, opts, cfg, args),
+		fs:         fs,
+		cfg:        cfg,
 	}
 }
 
 func (l *Loader) Load(opts LoadOptions) error {
-	err := l.setConfigFile()
+	err := l.BaseLoader.Load()
 	if err != nil {
 		return err
 	}
 
-	err = l.parseConfig()
+	if l.mode == modeLinters {
+		l.applyStringSliceHack()
+	}
+
+	if l.cfg.Linters.Exclusions.Generated == "" {
+		l.cfg.Linters.Exclusions.Generated = GeneratedModeStrict
+	}
+
+	err = l.checkConfigurationVersion()
 	if err != nil {
 		return err
 	}
 
-	l.applyStringSliceHack()
-
-	if l.cfg.Linters.LinterExclusions.Generated == "" {
-		// `l.cfg.Issues.ExcludeGenerated` is always non-empty because of the flag default value.
-		l.cfg.Linters.LinterExclusions.Generated = cmp.Or(l.cfg.Issues.ExcludeGenerated, "strict")
-	}
-
-	// Compatibility layer with v1.
-	// TODO(ldez): should be removed in v2.
-	if l.cfg.Issues.UseDefaultExcludes {
-		l.cfg.Linters.LinterExclusions.Presets = []string{
-			ExclusionPresetComments,
-			ExclusionPresetStdErrorHandling,
-			ExclusionPresetCommonFalsePositives,
-			ExclusionPresetLegacy,
+	if !l.cfg.InternalCmdTest {
+		for _, n := range slices.Concat(l.cfg.Linters.Enable, l.cfg.Linters.Disable) {
+			if n == "typecheck" {
+				return fmt.Errorf("%s is not a linter, it cannot be enabled or disabled", n)
+			}
 		}
 	}
 
-	if len(l.cfg.Issues.ExcludeRules) > 0 {
-		l.cfg.Linters.LinterExclusions.Rules = append(l.cfg.Linters.LinterExclusions.Rules, l.cfg.Issues.ExcludeRules...)
-	}
+	l.handleFormatters()
 
 	if opts.CheckDeprecation {
 		err = l.handleDeprecation()
 		if err != nil {
 			return err
 		}
+
+		l.handleFormatterDeprecations()
 	}
 
 	l.handleGoVersion()
@@ -122,166 +129,6 @@ func (l *Loader) Load(opts LoadOptions) error {
 	return nil
 }
 
-func (l *Loader) setConfigFile() error {
-	configFile, err := l.evaluateOptions()
-	if err != nil {
-		if errors.Is(err, errConfigDisabled) {
-			return nil
-		}
-
-		return fmt.Errorf("can't parse --config option: %w", err)
-	}
-
-	if configFile != "" {
-		l.viper.SetConfigFile(configFile)
-
-		// Assume YAML if the file has no extension.
-		if filepath.Ext(configFile) == "" {
-			l.viper.SetConfigType("yaml")
-		}
-	} else {
-		l.setupConfigFileSearch()
-	}
-
-	return nil
-}
-
-func (l *Loader) evaluateOptions() (string, error) {
-	if l.opts.NoConfig && l.opts.Config != "" {
-		return "", errors.New("can't combine option --config and --no-config")
-	}
-
-	if l.opts.NoConfig {
-		return "", errConfigDisabled
-	}
-
-	configFile, err := homedir.Expand(l.opts.Config)
-	if err != nil {
-		return "", errors.New("failed to expand configuration path")
-	}
-
-	return configFile, nil
-}
-
-func (l *Loader) setupConfigFileSearch() {
-	l.viper.SetConfigName(".golangci")
-
-	configSearchPaths := l.getConfigSearchPaths()
-
-	l.log.Infof("Config search paths: %s", configSearchPaths)
-
-	for _, p := range configSearchPaths {
-		l.viper.AddConfigPath(p)
-	}
-}
-
-func (l *Loader) getConfigSearchPaths() []string {
-	firstArg := "./..."
-	if len(l.args) > 0 {
-		firstArg = l.args[0]
-	}
-
-	absPath, err := filepath.Abs(firstArg)
-	if err != nil {
-		l.log.Warnf("Can't make abs path for %q: %s", firstArg, err)
-		absPath = filepath.Clean(firstArg)
-	}
-
-	// start from it
-	var currentDir string
-	if fsutils.IsDir(absPath) {
-		currentDir = absPath
-	} else {
-		currentDir = filepath.Dir(absPath)
-	}
-
-	// find all dirs from it up to the root
-	searchPaths := []string{"./"}
-
-	for {
-		searchPaths = append(searchPaths, currentDir)
-
-		parent := filepath.Dir(currentDir)
-		if currentDir == parent || parent == "" {
-			break
-		}
-
-		currentDir = parent
-	}
-
-	// find home directory for global config
-	if home, err := homedir.Dir(); err != nil {
-		l.log.Warnf("Can't get user's home directory: %v", err)
-	} else if !slices.Contains(searchPaths, home) {
-		searchPaths = append(searchPaths, home)
-	}
-
-	return searchPaths
-}
-
-func (l *Loader) parseConfig() error {
-	if err := l.viper.ReadInConfig(); err != nil {
-		var configFileNotFoundError viper.ConfigFileNotFoundError
-		if errors.As(err, &configFileNotFoundError) {
-			// Load configuration from flags only.
-			err = l.viper.Unmarshal(l.cfg, customDecoderHook())
-			if err != nil {
-				return fmt.Errorf("can't unmarshal config by viper (flags): %w", err)
-			}
-
-			return nil
-		}
-
-		return fmt.Errorf("can't read viper config: %w", err)
-	}
-
-	err := l.setConfigDir()
-	if err != nil {
-		return err
-	}
-
-	// Load configuration from all sources (flags, file).
-	if err := l.viper.Unmarshal(l.cfg, customDecoderHook()); err != nil {
-		return fmt.Errorf("can't unmarshal config by viper (flags, file): %w", err)
-	}
-
-	if l.cfg.InternalTest { // just for testing purposes: to detect config file usage
-		_, _ = fmt.Fprintln(logutils.StdOut, "test")
-		os.Exit(exitcodes.Success)
-	}
-
-	return nil
-}
-
-func (l *Loader) setConfigDir() error {
-	usedConfigFile := l.viper.ConfigFileUsed()
-	if usedConfigFile == "" {
-		return nil
-	}
-
-	if usedConfigFile == os.Stdin.Name() {
-		usedConfigFile = ""
-		l.log.Infof("Reading config file stdin")
-	} else {
-		var err error
-		usedConfigFile, err = fsutils.ShortestRelPath(usedConfigFile, "")
-		if err != nil {
-			l.log.Warnf("Can't pretty print config file path: %v", err)
-		}
-
-		l.log.Infof("Used config file %s", usedConfigFile)
-	}
-
-	usedConfigDir, err := filepath.Abs(filepath.Dir(usedConfigFile))
-	if err != nil {
-		return errors.New("can't get config directory")
-	}
-
-	l.cfg.cfgDir = usedConfigDir
-
-	return nil
-}
-
 // Hack to append values from StringSlice flags.
 // Viper always overrides StringSlice values.
 // https://github.com/spf13/viper/issues/1448
@@ -293,14 +140,7 @@ func (l *Loader) applyStringSliceHack() {
 
 	l.appendStringSlice("enable", &l.cfg.Linters.Enable)
 	l.appendStringSlice("disable", &l.cfg.Linters.Disable)
-	l.appendStringSlice("presets", &l.cfg.Linters.Presets)
 	l.appendStringSlice("build-tags", &l.cfg.Run.BuildTags)
-	l.appendStringSlice("exclude", &l.cfg.Issues.ExcludePatterns)
-
-	l.appendStringSlice("skip-dirs", &l.cfg.Run.SkipDirs)
-	l.appendStringSlice("skip-files", &l.cfg.Run.SkipFiles)
-	l.appendStringSlice("exclude-dirs", &l.cfg.Issues.ExcludeDirs)
-	l.appendStringSlice("exclude-files", &l.cfg.Issues.ExcludeFiles)
 }
 
 func (l *Loader) appendStringSlice(name string, current *[]string) {
@@ -310,22 +150,32 @@ func (l *Loader) appendStringSlice(name string, current *[]string) {
 	}
 }
 
-func (l *Loader) handleGoVersion() {
-	if l.cfg.Run.Go == "" {
-		l.cfg.Run.Go = detectGoVersion(context.Background())
+func (l *Loader) checkConfigurationVersion() error {
+	if l.cfg.GetConfigDir() != "" && l.cfg.Version != "2" {
+		return fmt.Errorf("unsupported version of the configuration: %q "+
+			"See https://golangci-lint.run/product/migration-guide for migration instructions", l.cfg.Version)
 	}
 
-	l.cfg.LintersSettings.Govet.Go = l.cfg.Run.Go
+	return nil
+}
 
-	l.cfg.LintersSettings.ParallelTest.Go = l.cfg.Run.Go
+func (l *Loader) handleGoVersion() {
+	if l.cfg.Run.Go == "" {
+		l.cfg.Run.Go = detectGoVersion(context.Background(), l.log)
+	}
 
-	l.cfg.LintersSettings.Gofumpt.LangVersion = cmp.Or(l.cfg.LintersSettings.Gofumpt.LangVersion, l.cfg.Run.Go)
+	l.cfg.Linters.Settings.Govet.Go = l.cfg.Run.Go
+
+	l.cfg.Linters.Settings.ParallelTest.Go = l.cfg.Run.Go
+
+	l.cfg.Linters.Settings.GoFumpt.LangVersion = l.cfg.Run.Go
+	l.cfg.Formatters.Settings.GoFumpt.LangVersion = l.cfg.Run.Go
 
 	trimmedGoVersion := goutil.TrimGoVersion(l.cfg.Run.Go)
 
-	l.cfg.LintersSettings.Revive.Go = trimmedGoVersion
+	l.cfg.Linters.Settings.Revive.Go = trimmedGoVersion
 
-	l.cfg.LintersSettings.Gocritic.Go = trimmedGoVersion
+	l.cfg.Linters.Settings.Gocritic.Go = trimmedGoVersion
 
 	os.Setenv("GOSECGOVERSION", l.cfg.Run.Go)
 }
@@ -335,142 +185,19 @@ func (l *Loader) handleDeprecation() error {
 		return nil
 	}
 
-	// Deprecated since v1.57.0
-	if len(l.cfg.Run.SkipFiles) > 0 {
-		l.log.Warnf("The configuration option `run.skip-files` is deprecated, please use `issues.exclude-files`.")
-		l.cfg.Issues.ExcludeFiles = l.cfg.Run.SkipFiles
-	}
-
-	// Deprecated since v1.57.0
-	if len(l.cfg.Run.SkipDirs) > 0 {
-		l.log.Warnf("The configuration option `run.skip-dirs` is deprecated, please use `issues.exclude-dirs`.")
-		l.cfg.Issues.ExcludeDirs = l.cfg.Run.SkipDirs
-	}
-
-	// Deprecated since v1.57.0
-	if l.cfg.Run.UseDefaultSkipDirs != nil {
-		l.log.Warnf("The configuration option `run.skip-dirs-use-default` is deprecated, please use `issues.exclude-dirs-use-default`.")
-		l.cfg.Issues.UseDefaultExcludeDirs = *l.cfg.Run.UseDefaultSkipDirs
-	}
-
-	// Deprecated since v1.57.0
-	if l.cfg.Run.ShowStats != nil {
-		l.log.Warnf("The configuration option `run.show-stats` is deprecated, please use `output.show-stats`")
-		l.cfg.Output.ShowStats = *l.cfg.Run.ShowStats
-	}
-
-	// Deprecated since v1.63.0
-	if l.cfg.Output.UniqByLine != nil {
-		l.log.Warnf("The configuration option `output.uniq-by-line` is deprecated, please use `issues.uniq-by-line`")
-		l.cfg.Issues.UniqByLine = *l.cfg.Output.UniqByLine
-	}
-
-	// Deprecated since v1.57.0
-	if l.cfg.Output.Format != "" {
-		l.log.Warnf("The configuration option `output.format` is deprecated, please use `output.formats`")
-
-		var f OutputFormats
-		err := f.UnmarshalText([]byte(l.cfg.Output.Format))
-		if err != nil {
-			return fmt.Errorf("unmarshal output format: %w", err)
-		}
-
-		l.cfg.Output.Formats = f
-	}
-
-	for _, format := range l.cfg.Output.Formats {
-		if format.Format == OutFormatGithubActions {
-			l.log.Warnf("The output format `%s` is deprecated, please use `%s`", OutFormatGithubActions, OutFormatColoredLineNumber)
-			break // To avoid repeating the message if there are several usages of github-actions format.
-		}
-	}
-
-	// Deprecated since v1.59.0
-	if l.cfg.Issues.ExcludeGeneratedStrict != nil {
-		l.log.Warnf("The configuration option `issues.exclude-generated-strict` is deprecated, please use `issues.exclude-generated`")
-		if !*l.cfg.Issues.ExcludeGeneratedStrict {
-			l.cfg.Issues.ExcludeGenerated = "strict" // Don't use the constants to avoid cyclic dependencies.
-		}
-	}
-
 	l.handleLinterOptionDeprecations()
 
 	return nil
 }
 
 func (l *Loader) handleLinterOptionDeprecations() {
-	// Deprecated since v1.57.0,
-	// but it was unofficially deprecated since v1.19 (2019) (https://github.com/golangci/golangci-lint/pull/697).
-	if l.cfg.LintersSettings.Govet.CheckShadowing != nil {
-		l.log.Warnf("The configuration option `linters.govet.check-shadowing` is deprecated. " +
-			"Please enable `shadow` instead, if you are not using `enable-all`.")
-	}
+	// Deprecated since v2.1.0.
+	if l.cfg.Linters.Settings.Goconst.IgnoreStrings != "" {
+		l.log.Warnf("The configuration option `linters.settings.goconst.ignore-strings` is deprecated, " +
+			"please use `linters.settings.goconst.ignore-string-values`.")
 
-	if l.cfg.LintersSettings.CopyLoopVar.IgnoreAlias != nil {
-		l.log.Warnf("The configuration option `linters.copyloopvar.ignore-alias` is deprecated and ignored," +
-			"please use `linters.copyloopvar.check-alias`.")
-	}
-
-	// Deprecated since v1.42.0.
-	if l.cfg.LintersSettings.Errcheck.Exclude != "" {
-		l.log.Warnf("The configuration option `linters.errcheck.exclude` is deprecated, please use `linters.errcheck.exclude-functions`.")
-	}
-
-	// Deprecated since v1.59.0,
-	// but it was unofficially deprecated since v1.13 (2018) (https://github.com/golangci/golangci-lint/pull/332).
-	if l.cfg.LintersSettings.Errcheck.Ignore != "" {
-		l.log.Warnf("The configuration option `linters.errcheck.ignore` is deprecated, please use `linters.errcheck.exclude-functions`.")
-	}
-
-	// Deprecated since v1.44.0.
-	if l.cfg.LintersSettings.Gci.LocalPrefixes != "" {
-		l.log.Warnf("The configuration option `linters.gci.local-prefixes` is deprecated, please use `prefix()` inside `linters.gci.sections`.")
-	}
-
-	// Deprecated since v1.33.0.
-	if l.cfg.LintersSettings.Godot.CheckAll != nil {
-		l.log.Warnf("The configuration option `linters.godot.check-all` is deprecated, please use `linters.godot.scope: all`.")
-	}
-
-	// Deprecated since v1.47.0
-	if l.cfg.LintersSettings.Gofumpt.LangVersion != "" {
-		l.log.Warnf("The configuration option `linters.gofumpt.lang-version` is deprecated, please use global `run.go`.")
-	}
-
-	// Deprecated since v1.47.0
-	if l.cfg.LintersSettings.Staticcheck.GoVersion != "" {
-		l.log.Warnf("The configuration option `linters.staticcheck.go` is deprecated, please use global `run.go`.")
-	}
-
-	// Deprecated since v1.47.0
-	if l.cfg.LintersSettings.Gosimple.GoVersion != "" {
-		l.log.Warnf("The configuration option `linters.gosimple.go` is deprecated, please use global `run.go`.")
-	}
-
-	// Deprecated since v1.47.0
-	if l.cfg.LintersSettings.Stylecheck.GoVersion != "" {
-		l.log.Warnf("The configuration option `linters.stylecheck.go` is deprecated, please use global `run.go`.")
-	}
-
-	// Deprecated since v1.60.0
-	if l.cfg.LintersSettings.Unused.ExportedIsUsed != nil {
-		l.log.Warnf("The configuration option `linters.unused.exported-is-used` is deprecated.")
-	}
-
-	// Deprecated since v1.58.0
-	if l.cfg.LintersSettings.SlogLint.ContextOnly != nil {
-		l.log.Warnf("The configuration option `linters.sloglint.context-only` is deprecated, please use `linters.sloglint.context`.")
-		l.cfg.LintersSettings.SlogLint.Context = cmp.Or(l.cfg.LintersSettings.SlogLint.Context, "all")
-	}
-
-	// Deprecated since v1.51.0
-	if l.cfg.LintersSettings.UseStdlibVars.OSDevNull != nil {
-		l.log.Warnf("The configuration option `linters.usestdlibvars.os-dev-null` is deprecated.")
-	}
-
-	// Deprecated since v1.51.0
-	if l.cfg.LintersSettings.UseStdlibVars.SyslogPriority != nil {
-		l.log.Warnf("The configuration option `linters.usestdlibvars.syslog-priority` is deprecated.")
+		l.cfg.Linters.Settings.Goconst.IgnoreStringValues = append(l.cfg.Linters.Settings.Goconst.IgnoreStringValues,
+			l.cfg.Linters.Settings.Goconst.IgnoreStrings)
 	}
 }
 
@@ -487,21 +214,62 @@ func (l *Loader) handleEnableOnlyOption() error {
 
 	if len(only) > 0 {
 		l.cfg.Linters = Linters{
+			Default:    GroupNone,
 			Enable:     only,
-			DisableAll: true,
+			Settings:   l.cfg.Linters.Settings,
+			Exclusions: l.cfg.Linters.Exclusions,
 		}
+
+		l.cfg.Formatters = Formatters{}
 	}
 
 	return nil
 }
 
-func customDecoderHook() viper.DecoderConfigOption {
-	return viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
-		// Default hooks (https://github.com/spf13/viper/blob/518241257478c557633ab36e474dfcaeb9a3c623/viper.go#L135-L138).
-		mapstructure.StringToTimeDurationHookFunc(),
-		mapstructure.StringToSliceHookFunc(","),
+func (l *Loader) handleFormatters() {
+	l.handleFormatterOverrides()
+	l.handleFormatterExclusions()
+}
 
-		// Needed for forbidigo, and output.formats.
-		mapstructure.TextUnmarshallerHookFunc(),
-	))
+// Overrides linter settings with formatter settings if the formatter is enabled.
+func (l *Loader) handleFormatterOverrides() {
+	if slices.Contains(l.cfg.Formatters.Enable, "gofmt") {
+		l.cfg.Linters.Settings.GoFmt = l.cfg.Formatters.Settings.GoFmt
+	}
+
+	if slices.Contains(l.cfg.Formatters.Enable, "gofumpt") {
+		l.cfg.Linters.Settings.GoFumpt = l.cfg.Formatters.Settings.GoFumpt
+	}
+
+	if slices.Contains(l.cfg.Formatters.Enable, "goimports") {
+		l.cfg.Linters.Settings.GoImports = l.cfg.Formatters.Settings.GoImports
+	}
+
+	if slices.Contains(l.cfg.Formatters.Enable, "gci") {
+		l.cfg.Linters.Settings.Gci = l.cfg.Formatters.Settings.Gci
+	}
+
+	if slices.Contains(l.cfg.Formatters.Enable, "golines") {
+		l.cfg.Linters.Settings.GoLines = l.cfg.Formatters.Settings.GoLines
+	}
+}
+
+// Add formatter exclusions to linters exclusions.
+func (l *Loader) handleFormatterExclusions() {
+	if len(l.cfg.Formatters.Enable) == 0 {
+		return
+	}
+
+	for _, path := range l.cfg.Formatters.Exclusions.Paths {
+		l.cfg.Linters.Exclusions.Rules = append(l.cfg.Linters.Exclusions.Rules, ExcludeRule{
+			BaseRule: BaseRule{
+				Linters: l.cfg.Formatters.Enable,
+				Path:    path,
+			},
+		})
+	}
+}
+
+func (*Loader) handleFormatterDeprecations() {
+	// The function is empty but deprecations will happen in the future.
 }

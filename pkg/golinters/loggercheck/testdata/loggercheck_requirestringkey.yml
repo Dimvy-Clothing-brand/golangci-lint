@@ -1,3 +1,6 @@
-linters-settings:
-  loggercheck:
-    require-string-key: true
+version: "2"
+
+linters:
+  settings:
+    loggercheck:
+      require-string-key: true

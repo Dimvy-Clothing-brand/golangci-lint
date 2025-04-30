@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/golangci/golangci-lint/v2/pkg/fsutils"
 )
 
 func TestOutput_Validate(t *testing.T) {
@@ -12,31 +14,39 @@ func TestOutput_Validate(t *testing.T) {
 		settings *Output
 	}{
 		{
-			desc: "file",
+			desc: "SortOrder: file",
 			settings: &Output{
-				SortResults: true,
-				SortOrder:   []string{"file"},
+				SortOrder: []string{"file"},
 			},
 		},
 		{
-			desc: "linter",
+			desc: "SortOrder: linter",
 			settings: &Output{
-				SortResults: true,
-				SortOrder:   []string{"linter"},
+				SortOrder: []string{"linter"},
 			},
 		},
 		{
-			desc: "severity",
+			desc: "SortOrder: severity",
 			settings: &Output{
-				SortResults: true,
-				SortOrder:   []string{"severity"},
+				SortOrder: []string{"severity"},
 			},
 		},
 		{
-			desc: "multiple",
+			desc: "SortOrder: multiple",
 			settings: &Output{
-				SortResults: true,
-				SortOrder:   []string{"file", "linter", "severity"},
+				SortOrder: []string{"file", "linter", "severity"},
+			},
+		},
+		{
+			desc: "PathMode: empty",
+			settings: &Output{
+				PathMode: "",
+			},
+		},
+		{
+			desc: "PathMode: absolute",
+			settings: &Output{
+				PathMode: fsutils.OutputPathModeAbsolute,
 			},
 		},
 	}
@@ -58,105 +68,25 @@ func TestOutput_Validate_error(t *testing.T) {
 		expected string
 	}{
 		{
-			desc: "sort-results false and sort-order",
+			desc: "SortOrder: invalid",
 			settings: &Output{
-				SortOrder: []string{"file"},
-			},
-			expected: "sort-results should be 'true' to use sort-order",
-		},
-		{
-			desc: "invalid sort-order",
-			settings: &Output{
-				SortResults: true,
-				SortOrder:   []string{"a"},
+				SortOrder: []string{"a"},
 			},
 			expected: `unsupported sort-order name "a"`,
 		},
 		{
-			desc: "duplicate",
+			desc: "SortOrder: duplicate",
 			settings: &Output{
-				SortResults: true,
-				SortOrder:   []string{"file", "linter", "severity", "linter"},
+				SortOrder: []string{"file", "linter", "severity", "linter"},
 			},
 			expected: `the sort-order name "linter" is repeated several times`,
 		},
 		{
-			desc: "unsupported format",
+			desc: "PathMode: invalid",
 			settings: &Output{
-				Formats: []OutputFormat{
-					{
-						Format: "test",
-					},
-				},
+				PathMode: "example",
 			},
-			expected: `unsupported output format "test"`,
-		},
-	}
-
-	for _, test := range testCases {
-		t.Run(test.desc, func(t *testing.T) {
-			t.Parallel()
-
-			err := test.settings.Validate()
-			require.EqualError(t, err, test.expected)
-		})
-	}
-}
-
-func TestOutputFormat_Validate(t *testing.T) {
-	testCases := []struct {
-		desc     string
-		settings *OutputFormat
-	}{
-		{
-			desc: "only format",
-			settings: &OutputFormat{
-				Format: "json",
-			},
-		},
-		{
-			desc: "format and path (relative)",
-			settings: &OutputFormat{
-				Format: "json",
-				Path:   "./example.json",
-			},
-		},
-		{
-			desc: "format and path (absolute)",
-			settings: &OutputFormat{
-				Format: "json",
-				Path:   "/tmp/example.json",
-			},
-		},
-	}
-
-	for _, test := range testCases {
-		t.Run(test.desc, func(t *testing.T) {
-			t.Parallel()
-
-			err := test.settings.Validate()
-			require.NoError(t, err)
-		})
-	}
-}
-
-func TestOutputFormat_Validate_error(t *testing.T) {
-	testCases := []struct {
-		desc     string
-		settings *OutputFormat
-		expected string
-	}{
-		{
-			desc:     "empty",
-			settings: &OutputFormat{},
-			expected: "the format is required",
-		},
-		{
-			desc: "unsupported format",
-			settings: &OutputFormat{
-				Format: "test",
-			},
-			expected: `unsupported output format "test"`,
+			expected: `unsupported output path mode "example"`,
 		},
 	}
 

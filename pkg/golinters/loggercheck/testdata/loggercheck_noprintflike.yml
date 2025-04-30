@@ -1,3 +1,6 @@
-linters-settings:
-  loggercheck:
-    no-printf-like: true
+version: "2"
+
+linters:
+  settings:
+    loggercheck:
+      no-printf-like: true

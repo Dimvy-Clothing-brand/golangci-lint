@@ -4,8 +4,8 @@ import (
 	"github.com/sashamelentyev/usestdlibvars/pkg/analyzer"
 	"golang.org/x/tools/go/analysis"
 
-	"github.com/golangci/golangci-lint/pkg/config"
-	"github.com/golangci/golangci-lint/pkg/goanalysis"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	"github.com/golangci/golangci-lint/v2/pkg/goanalysis"
 )
 
 func New(settings *config.UseStdlibVarsSettings) *goanalysis.Linter {
@@ -18,10 +18,10 @@ func New(settings *config.UseStdlibVarsSettings) *goanalysis.Linter {
 			analyzer.CryptoHashFlag:         settings.CryptoHash,
 			analyzer.HTTPMethodFlag:         settings.HTTPMethod,
 			analyzer.HTTPStatusCodeFlag:     settings.HTTPStatusCode,
-			analyzer.OSDevNullFlag:          settings.OSDevNull != nil && *settings.OSDevNull,
+			analyzer.OSDevNullFlag:          false, // Noop because the linter ignore it.
 			analyzer.RPCDefaultPathFlag:     settings.DefaultRPCPath,
 			analyzer.SQLIsolationLevelFlag:  settings.SQLIsolationLevel,
-			analyzer.SyslogPriorityFlag:     settings.SyslogPriority != nil && *settings.SyslogPriority,
+			analyzer.SyslogPriorityFlag:     false, // Noop because the linter ignore it.
 			analyzer.TimeLayoutFlag:         settings.TimeLayout,
 			analyzer.TimeMonthFlag:          settings.TimeMonth,
 			analyzer.TimeWeekdayFlag:        settings.TimeWeekday,

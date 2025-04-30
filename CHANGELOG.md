@@ -7,9 +7,151 @@ If you value it, consider supporting us, we appreciate it! ❤️
 [![Open Collective backers and sponsors](https://img.shields.io/badge/OpenCollective-Donate-blue?logo=opencollective&style=for-the-badge)](https://opencollective.com/golangci-lint)
 [![GitHub Sponsors](https://img.shields.io/badge/GitHub-Donate-blue?logo=github&style=for-the-badge)](https://github.com/sponsors/golangci)
 
+### v2.1.5
+
+Due to an error related to Snapcraft, some artifacts of the v2.1.4 release have not been published.
+
+This release contains the same things as v2.1.3.
+
+### v2.1.4
+
+Due to an error related to Snapcraft, some artifacts of the v2.1.3 release have not been published.
+
+This release contains the same things as v2.1.3.
+
+### v2.1.3
+
+1. Linters bug fixes
+   * `fatcontext`: from 0.7.2 to 0.8.0
+2. Misc.
+   * migration: fix `nakedret.max-func-lines: 0`
+   * migration: fix order of `staticcheck` settings
+   * fix: add `go.mod` hash to the cache salt
+   * fix: use diagnostic position for related information position
+
+### v2.1.2
+
+1. Linters bug fixes
+   * `exptostd`: from 0.4.2 to 0.4.3
+   * `gofumpt`: from 0.7.0 to 0.8.0
+   * `protogetter`: from 0.3.13 to 0.3.15
+   * `usetesting`: from 0.4.2 to 0.4.3
+
+### v2.1.1
+
+The release process of v2.1.0 failed due to a regression inside goreleaser.
+
+The binaries of v2.1.0 have been published, but not the other artifacts (AUR, Docker, etc.).
+
+### v2.1.0
+
+1. Enhancements
+   * Add an option to display absolute paths (`--path-mode=abs`)
+   * Add configuration path placeholder (`${config-path}`)
+   * Add `warn-unused` option for `fmt` command
+   * Colored diff for `fmt` command (`golangci-lint fmt --diff-colored`)
+2. New linters
+   * Add `funcorder` linter https://github.com/manuelarte/funcorder
+3. Linters new features or changes
+   * `go-errorlint`: from 1.7.1 to 1.8.0 (automatic error comparison and type assertion fixes)
+   * ⚠️ `goconst`: `ignore-strings` is deprecated and replaced by `ignore-string-values`
+   * `goconst`: from 1.7.1 to 1.8.1 (new options: `find-duplicates`, `eval-const-expressions`)
+   * `govet`: add `httpmux` analyzer
+   * `nilnesserr`: from 0.1.2 to 0.2.0 (detect more cases)
+   * `paralleltest`: from 1.0.10 to 1.0.14 (checks only `_test.go` files)
+   * `revive`: from 1.7.0 to 1.9.0 (support kebab case for setting names)
+   * `sloglint`: from 0.9.0 to 0.11.0 (autofix, new option `msg-style`, suggest `slog.DiscardHandler`)
+   * `wrapcheck`: from 2.10.0 to 2.11.0 (new option `report-internal-errors`)
+   * `wsl`: from 4.6.0 to 4.7.0 (cgo files are always excluded)
+4. Linters bug fixes
+   * `fatcontext`: from 0.7.1 to 0.7.2
+   * `gocritic`: fix `importshadow` checker
+   * `gosec`: from 2.22.2 to 2.22.3
+   * `ireturn`: from 0.3.1 to 0.4.0
+   * `loggercheck`: from 0.10.1 to 0.11.0
+   * `nakedret`: from 2.0.5 to 2.0.6
+   * `nonamedreturns`: from 1.0.5 to 1.0.6
+   * `protogetter`: from 0.3.12 to 0.3.13
+   * `testifylint`: from 1.6.0 to 1.6.1
+   * `unconvert`: update to HEAD
+5. Misc.
+   * Fixes memory leaks when using go1.(N) with golangci-lint built with go1.(N-X)
+   * Adds `golangci-lint-fmt` pre-commit hook
+6. Documentation
+   * Improvements
+   * Updates section about vscode integration
+
+### v2.0.2
+
+1. Misc.
+   * Fixes flags parsing for formatters
+   * Fixes the filepath used by the exclusion `source` option
+2. Documentation
+   * Adds a section about flags migration
+   * Cleaning pages with v1 options
+
+### v2.0.1
+
+1. Linters/formatters bug fixes
+   * `golines`: fix settings during linter load
+2. Misc.
+   * Validates the `version` field before the configuration
+   * `forbidigo`: fix migration
+
+### v2.0.0
+
+1. Enhancements
+   * 🌟 New `golangci-lint fmt` command with dedicated [formatter configuration](https://golangci-lint.run/welcome/quick-start/#formatting)
+   * ♻️ New `golangci-lint migrate` command to help migration from v1 to v2 (cf. [Migration guide](https://golangci-lint.run/product/migration-guide/#command-migrate))
+   * ⚠️ New default values (cf. [Migration guide](https://golangci-lint.run/product/migration-guide/))
+   * ⚠️ No exclusions by default (cf. [Migration guide](https://golangci-lint.run/product/migration-guide/#issuesexclude-use-default))
+   * ⚠️ New default sort order (cf. [Migration guide](https://golangci-lint.run/product/migration-guide/#outputsort-order))
+   * 🌟 New option `run.relative-path-mode` (cf. [Migration guide](https://golangci-lint.run/product/migration-guide/#runrelative-path-mode))
+   * 🌟 New linters configuration (cf. [Migration guide](https://golangci-lint.run/product/migration-guide/#linters))
+   * 🌟 New output format configuration (cf. [Migration guide](https://golangci-lint.run/product/migration-guide/#output))
+   * 🌟 New `--fast-only` flag (cf. [Migration guide](https://golangci-lint.run/product/migration-guide/#lintersfast))
+   * 🌟 New option `linters.exclusions.warn-unused` to log a warning if an exclusion rule is unused.
+2. New linters/formatters
+   * Add `golines` formatter https://github.com/segmentio/golines
+3. Linters new features
+   * ⚠️ Merge `staticcheck`, `stylecheck`, `gosimple` into one linter (`staticcheck`) (cf. [Migration guide](https://golangci-lint.run/product/migration-guide/#lintersenablestylecheckgosimplestaticcheck))
+   * `go-critic`: from 0.12.0 to 0.13.0
+   * `gomodguard`: from 1.3.5 to 1.4.1 (block explicit indirect dependencies)
+   * `nilnil`: from 1.0.1 to 1.1.0 (new option: `only-two`)
+   * `perfsprint`: from 0.8.2 to 0.9.1 (checker name in the diagnostic message)
+   * `staticcheck`: new `quickfix` set of rules
+   * `testifylint`: from 1.5.2 to 1.6.0 (new options: `equal-values`, `suite-method-signature`, `require-string-msg`)
+   * `wsl`: from 4.5.0 to 4.6.0 (new option: `allow-cuddle-used-in-block`)
+4. Linters bug fixes
+   * `bidichk`: from 0.3.2 to 0.3.3
+   * `errchkjson`: from 0.4.0 to 0.4.1
+   * `errname`: from 1.0.0 to 1.1.0
+   * `funlen`: fix `ignore-comments` option
+   * `gci`: from 0.13.5 to 0.13.6
+   * `gosmopolitan`: from 1.2.2 to 1.3.0
+   * `inamedparam`: from 0.1.3 to 0.2.0
+   * `intrange`: from 0.3.0 to 0.3.1
+   * `protogetter`: from 0.3.9 to 0.3.12
+   * `unparam`: from 8a5130ca722f to 0df0534333a4
+5. Misc.
+   * 🧹 Configuration options renaming (cf. [Migration guide](https://golangci-lint.run/product/migration-guide/))
+   * 🧹 Remove options (cf. [Migration guide](https://golangci-lint.run/product/migration-guide/))
+   * 🧹 Remove flags (cf. [Migration guide](https://golangci-lint.run/product/migration-guide/))
+   * 🧹 Remove alternative names (cf. [Migration guide](https://golangci-lint.run/product/migration-guide/#alternative-linter-names))
+   * 🧹 Remove or replace deprecated elements (cf. [Migration guide](https://golangci-lint.run/product/migration-guide/))
+   * Adds an option to display some commands as JSON:
+     * `golangci-lint config path --json`
+     * `golangci-lint help linters --json`
+     * `golangci-lint help formatters --json`
+     * `golangci-lint linters --json`
+     * `golangci-lint formatters --json`
+     * `golangci-lint version --json`
+6. Documentation
+   * [Migration guide](https://golangci-lint.run/product/migration-guide/)
+
 ### v1.64.8
 
-* Detects use pf configuration files from golangci-lint v2
+* Detects use of configuration files from golangci-lint v2
 
 ### v1.64.7
 

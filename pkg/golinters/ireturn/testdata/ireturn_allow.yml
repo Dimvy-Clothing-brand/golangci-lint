@@ -1,4 +1,7 @@
-linters-settings:
-  ireturn:
-    allow:
-    - IreturnAllowDoer
+version: "2"
+
+linters:
+  settings:
+    ireturn:
+      allow:
+      - IreturnAllowDoer

@@ -5,8 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/golangci/golangci-lint/pkg/config"
-	"github.com/golangci/golangci-lint/pkg/logutils"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
 )
 
 type validateErrorTestCase struct {
@@ -31,26 +30,6 @@ var validateLintersNamesErrorTestCases = []validateErrorTestCase{
 			Disable: []string{"golangci"},
 		},
 		expected: `unknown linters: 'golangci', run 'golangci-lint help linters' to see the list of supported linters`,
-	},
-}
-
-var validatePresetsErrorTestCases = []validateErrorTestCase{
-	{
-		desc: "unknown preset",
-		cfg: &config.Linters{
-			EnableAll: false,
-			Presets:   []string{"golangci"},
-		},
-		expected: "no such preset \"golangci\": only next presets exist: " +
-			"(bugs|comment|complexity|error|format|import|metalinter|module|performance|sql|style|test|unused)",
-	},
-	{
-		desc: "presets and enable-all",
-		cfg: &config.Linters{
-			EnableAll: true,
-			Presets:   []string{"bugs"},
-		},
-		expected: `--presets is incompatible with --enable-all`,
 	},
 }
 
@@ -83,30 +62,6 @@ var validateLintersNamesTestCases = []validatorTestCase{
 	},
 }
 
-var validatePresetsTestCases = []validatorTestCase{
-	{
-		desc: "known preset",
-		cfg: &config.Linters{
-			EnableAll: false,
-			Presets:   []string{"bugs"},
-		},
-	},
-	{
-		desc: "enable-all and no presets",
-		cfg: &config.Linters{
-			EnableAll: true,
-			Presets:   nil,
-		},
-	},
-	{
-		desc: "no presets",
-		cfg: &config.Linters{
-			EnableAll: false,
-			Presets:   nil,
-		},
-	},
-}
-
 func TestValidator_Validate(t *testing.T) {
 	m, err := NewManager(nil, nil, NewLinterBuilder())
 	require.NoError(t, err)
@@ -115,7 +70,6 @@ func TestValidator_Validate(t *testing.T) {
 
 	var testCases []validatorTestCase
 	testCases = append(testCases, validateLintersNamesTestCases...)
-	testCases = append(testCases, validatePresetsTestCases...)
 
 	for _, test := range testCases {
 		t.Run(test.desc, func(t *testing.T) {
@@ -135,7 +89,6 @@ func TestValidator_Validate_error(t *testing.T) {
 
 	var testCases []validateErrorTestCase
 	testCases = append(testCases, validateLintersNamesErrorTestCases...)
-	testCases = append(testCases, validatePresetsErrorTestCases...)
 
 	for _, test := range testCases {
 		t.Run(test.desc, func(t *testing.T) {
@@ -181,56 +134,4 @@ func TestValidator_validateLintersNames_error(t *testing.T) {
 			require.EqualError(t, err, test.expected)
 		})
 	}
-}
-
-func TestValidator_validatePresets(t *testing.T) {
-	v := NewValidator(nil)
-
-	for _, test := range validatePresetsTestCases {
-		t.Run(test.desc, func(t *testing.T) {
-			t.Parallel()
-
-			err := v.validatePresets(test.cfg)
-			require.NoError(t, err)
-		})
-	}
-}
-
-func TestValidator_validatePresets_error(t *testing.T) {
-	v := NewValidator(nil)
-
-	for _, test := range validatePresetsErrorTestCases {
-		t.Run(test.desc, func(t *testing.T) {
-			t.Parallel()
-
-			err := v.validatePresets(test.cfg)
-			require.Error(t, err)
-
-			require.EqualError(t, err, test.expected)
-		})
-	}
-}
-
-func TestValidator_alternativeNamesDeprecation(t *testing.T) {
-	t.Setenv(logutils.EnvTestRun, "0")
-
-	log := logutils.NewMockLog().
-		OnWarnf("The name %q is deprecated. The linter has been renamed to: %s.", "vet", "govet").
-		OnWarnf("The name %q is deprecated. The linter has been renamed to: %s.", "vetshadow", "govet").
-		OnWarnf("The name %q is deprecated. The linter has been renamed to: %s.", "logrlint", "loggercheck").
-		OnWarnf("The linter named %q is deprecated. It has been split into: %s.", "megacheck", "gosimple, staticcheck, unused").
-		OnWarnf("The name %q is deprecated. The linter has been renamed to: %s.", "gas", "gosec")
-
-	m, err := NewManager(log, nil, NewLinterBuilder())
-	require.NoError(t, err)
-
-	v := NewValidator(m)
-
-	cfg := &config.Linters{
-		Enable:  []string{"vet", "vetshadow", "logrlint"},
-		Disable: []string{"megacheck", "gas"},
-	}
-
-	err = v.alternativeNamesDeprecation(cfg)
-	require.NoError(t, err)
 }

@@ -1,3 +1,6 @@
-linters-settings:
-  sloglint:
-    kv-only: true
+version: "2"
+
+linters:
+  settings:
+    sloglint:
+      kv-only: true

@@ -1,9 +1,12 @@
-linters-settings:
-  goheader:
-    values:
-      const:
-        AUTHOR: The Awesome Project Authors
-    template: |-
-      Copyright 2024 {{ AUTHOR }}
+version: "2"
 
-      Use of this source code is governed by LICENSE
+linters:
+  settings:
+    goheader:
+      values:
+        const:
+          AUTHOR: The Awesome Project Authors
+      template: |-
+        Copyright 2024 {{ AUTHOR }}
+  
+        Use of this source code is governed by LICENSE

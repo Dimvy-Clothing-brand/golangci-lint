@@ -9,8 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/golangci/golangci-lint/pkg/logutils"
-	"github.com/golangci/golangci-lint/pkg/result"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	"github.com/golangci/golangci-lint/v2/pkg/logutils"
+	"github.com/golangci/golangci-lint/v2/pkg/result"
 )
 
 func TestTab_Print(t *testing.T) {
@@ -87,7 +88,11 @@ path/to/fileb.go:300:9  another issue
 
 			buf := new(bytes.Buffer)
 
-			printer := NewTab(logutils.NewStderrLog(logutils.DebugKeyEmpty), buf, test.printLinterName, test.useColors)
+			printer := NewTab(logutils.NewStderrLog(logutils.DebugKeyEmpty), buf, &config.Tab{
+				SimpleFormat:    config.SimpleFormat{},
+				PrintLinterName: test.printLinterName,
+				Colors:          test.useColors,
+			})
 
 			err := printer.Print(issues)
 			require.NoError(t, err)

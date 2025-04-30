@@ -1,3 +1,6 @@
-linters-settings:
-  goconst:
-    ignore-calls: false
+version: "2"
+
+linters:
+  settings:
+    goconst:
+      ignore-calls: false

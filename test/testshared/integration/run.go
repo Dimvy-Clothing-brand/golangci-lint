@@ -10,8 +10,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/golangci/golangci-lint/pkg/logutils"
-	"github.com/golangci/golangci-lint/test/testshared"
+	"github.com/golangci/golangci-lint/v2/pkg/logutils"
+	"github.com/golangci/golangci-lint/v2/test/testshared"
 )
 
 const testdataDir = "testdata"
@@ -62,8 +62,9 @@ func testOneSource(t *testing.T, log *logutils.StderrLog, binPath, sourcePath st
 	}
 
 	args := []string{
-		"--disable-all",
-		"--out-format=json",
+		"--default=none",
+		"--show-stats=false",
+		"--output.json.path=stdout",
 		"--max-same-issues=100",
 		"--max-issues-per-linter=100",
 	}

@@ -1,65 +1,37 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
-)
 
-const (
-	OutFormatJSON              = "json"
-	OutFormatLineNumber        = "line-number"
-	OutFormatColoredLineNumber = "colored-line-number"
-	OutFormatTab               = "tab"
-	OutFormatColoredTab        = "colored-tab"
-	OutFormatCheckstyle        = "checkstyle"
-	OutFormatCodeClimate       = "code-climate"
-	OutFormatHTML              = "html"
-	OutFormatJUnitXML          = "junit-xml"
-	OutFormatJUnitXMLExtended  = "junit-xml-extended"
-	OutFormatGithubActions     = "github-actions" // Deprecated
-	OutFormatTeamCity          = "teamcity"
-	OutFormatSarif             = "sarif"
+	"github.com/golangci/golangci-lint/v2/pkg/fsutils"
 )
-
-var AllOutputFormats = []string{
-	OutFormatJSON,
-	OutFormatLineNumber,
-	OutFormatColoredLineNumber,
-	OutFormatTab,
-	OutFormatColoredTab,
-	OutFormatCheckstyle,
-	OutFormatCodeClimate,
-	OutFormatHTML,
-	OutFormatJUnitXML,
-	OutFormatJUnitXMLExtended,
-	OutFormatGithubActions,
-	OutFormatTeamCity,
-	OutFormatSarif,
-}
 
 type Output struct {
-	Formats         OutputFormats `mapstructure:"formats"`
-	PrintIssuedLine bool          `mapstructure:"print-issued-lines"`
-	PrintLinterName bool          `mapstructure:"print-linter-name"`
-	SortResults     bool          `mapstructure:"sort-results"`
-	SortOrder       []string      `mapstructure:"sort-order"`
-	PathPrefix      string        `mapstructure:"path-prefix"`
-	ShowStats       bool          `mapstructure:"show-stats"`
-
-	// Deprecated: use Formats instead.
-	Format string `mapstructure:"format"`
-
-	// Deprecated: use [Issues.UniqByLine] instead.
-	UniqByLine *bool `mapstructure:"uniq-by-line"`
+	Formats    Formats  `mapstructure:"formats"`
+	SortOrder  []string `mapstructure:"sort-order"`
+	ShowStats  bool     `mapstructure:"show-stats"`
+	PathPrefix string   `mapstructure:"path-prefix"`
+	PathMode   string   `mapstructure:"path-mode"`
 }
 
 func (o *Output) Validate() error {
-	if !o.SortResults && len(o.SortOrder) > 0 {
-		return errors.New("sort-results should be 'true' to use sort-order")
+	validators := []func() error{
+		o.validateSortOrder,
+		o.validatePathMode,
 	}
 
+	for _, v := range validators {
+		if err := v(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (o *Output) validateSortOrder() error {
 	validOrders := []string{"linter", "file", "severity"}
 
 	all := strings.Join(o.SortOrder, " ")
@@ -74,45 +46,16 @@ func (o *Output) Validate() error {
 		}
 	}
 
-	for _, format := range o.Formats {
-		err := format.Validate()
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
-type OutputFormat struct {
-	Format string `mapstructure:"format"`
-	Path   string `mapstructure:"path"`
-}
+func (o *Output) validatePathMode() error {
+	switch o.PathMode {
+	case "", fsutils.OutputPathModeAbsolute:
+		// Valid
 
-func (o *OutputFormat) Validate() error {
-	if o.Format == "" {
-		return errors.New("the format is required")
-	}
-
-	if !slices.Contains(AllOutputFormats, o.Format) {
-		return fmt.Errorf("unsupported output format %q", o.Format)
-	}
-
-	return nil
-}
-
-type OutputFormats []OutputFormat
-
-func (p *OutputFormats) UnmarshalText(text []byte) error {
-	formats := strings.Split(string(text), ",")
-
-	for _, item := range formats {
-		format, path, _ := strings.Cut(item, ":")
-
-		*p = append(*p, OutputFormat{
-			Path:   path,
-			Format: format,
-		})
+	default:
+		return fmt.Errorf("unsupported output path mode %q", o.PathMode)
 	}
 
 	return nil

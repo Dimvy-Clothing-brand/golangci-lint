@@ -1,3 +1,6 @@
-linters-settings:
-  copyloopvar:
-    check-alias: true
+version: "2"
+
+linters:
+  settings:
+    copyloopvar:
+      check-alias: true

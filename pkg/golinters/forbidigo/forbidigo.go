@@ -5,10 +5,11 @@ import (
 
 	"github.com/ashanbrown/forbidigo/forbidigo"
 	"golang.org/x/tools/go/analysis"
+	"gopkg.in/yaml.v3"
 
-	"github.com/golangci/golangci-lint/pkg/config"
-	"github.com/golangci/golangci-lint/pkg/goanalysis"
-	"github.com/golangci/golangci-lint/pkg/logutils"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	"github.com/golangci/golangci-lint/v2/pkg/goanalysis"
+	"github.com/golangci/golangci-lint/v2/pkg/logutils"
 )
 
 const linterName = "forbidigo"
@@ -49,7 +50,7 @@ func runForbidigo(pass *analysis.Pass, settings *config.ForbidigoSettings) error
 	// Convert patterns back to strings because that is what NewLinter accepts.
 	var patterns []string
 	for _, pattern := range settings.Forbid {
-		buffer, err := pattern.MarshalString()
+		buffer, err := yaml.Marshal(pattern)
 		if err != nil {
 			return err
 		}

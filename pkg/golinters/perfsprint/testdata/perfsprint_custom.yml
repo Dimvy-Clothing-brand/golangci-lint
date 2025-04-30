@@ -1,7 +1,9 @@
-linters-settings:
-  perfsprint:
-    int-conversion: false
-    err-error: true
-    errorf: false
-    sprintf1: false
+version: "2"
 
+linters:
+  settings:
+    perfsprint:
+      int-conversion: false
+      err-error: true
+      errorf: false
+      sprintf1: false

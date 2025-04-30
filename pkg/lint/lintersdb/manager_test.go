@@ -7,15 +7,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/tools/go/packages"
 
-	"github.com/golangci/golangci-lint/pkg/config"
-	"github.com/golangci/golangci-lint/pkg/goanalysis"
-	"github.com/golangci/golangci-lint/pkg/lint/linter"
-	"github.com/golangci/golangci-lint/pkg/logutils"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	"github.com/golangci/golangci-lint/v2/pkg/goanalysis"
+	"github.com/golangci/golangci-lint/v2/pkg/lint/linter"
+	"github.com/golangci/golangci-lint/v2/pkg/logutils"
 )
 
 func TestManager_GetEnabledLintersMap(t *testing.T) {
 	cfg := config.NewDefault()
-	cfg.Linters.DisableAll = true
+	cfg.Linters.Default = config.GroupNone
 	cfg.Linters.Enable = []string{"gofmt"}
 
 	m, err := NewManager(logutils.NewStderrLog("skip"), cfg, NewLinterBuilder())
@@ -37,7 +37,7 @@ func TestManager_GetEnabledLintersMap(t *testing.T) {
 
 func TestManager_GetOptimizedLinters(t *testing.T) {
 	cfg := config.NewDefault()
-	cfg.Linters.DisableAll = true
+	cfg.Linters.Default = config.GroupNone
 	cfg.Linters.Enable = []string{"gofmt"}
 
 	m, err := NewManager(logutils.NewStderrLog("skip"), cfg, NewLinterBuilder())
@@ -55,8 +55,7 @@ func TestManager_GetOptimizedLinters(t *testing.T) {
 	}
 
 	mlConfig := &linter.Config{
-		Linter:    goanalysis.NewMetaLinter(gaLinters),
-		InPresets: []string{"format"},
+		Linter: goanalysis.NewMetaLinter(gaLinters),
 	}
 
 	expected := []*linter.Config{mlConfig.WithLoadFiles()}
@@ -65,109 +64,87 @@ func TestManager_GetOptimizedLinters(t *testing.T) {
 }
 
 func TestManager_build(t *testing.T) {
-	type cs struct {
-		cfg  config.Linters
-		name string   // test case name
-		def  []string // enabled by default linters
-		exp  []string // alphabetically ordered enabled linter names
-	}
-
-	allMegacheckLinterNames := []string{"gosimple", "staticcheck", "unused"}
-
-	cases := []cs{
+	testCases := []struct {
+		desc     string
+		cfg      *config.Config
+		expected []string // alphabetically ordered enabled linter names
+	}{
 		{
-			cfg: config.Linters{
-				Disable: []string{"megacheck"},
+			desc: "enable gosec by primary name",
+			cfg: &config.Config{
+				Linters: config.Linters{
+					Default: config.GroupNone,
+					Enable:  []string{"gosec"},
+				},
 			},
-			name: "disable all linters from megacheck",
-			def:  allMegacheckLinterNames,
-			exp:  []string{"typecheck"}, // all disabled
+			expected: []string{"gosec", "typecheck"},
 		},
 		{
-			cfg: config.Linters{
-				Disable: []string{"staticcheck"},
+			desc: "disable gosec by primary name",
+			cfg: &config.Config{
+				Linters: config.Linters{
+					Default: config.GroupNone,
+					Disable: []string{"gosec"},
+				},
 			},
-			name: "disable only staticcheck",
-			def:  allMegacheckLinterNames,
-			exp:  []string{"gosimple", "typecheck", "unused"},
+			expected: []string{"typecheck"},
 		},
 		{
-			name: "don't merge into megacheck",
-			def:  allMegacheckLinterNames,
-			exp:  []string{"gosimple", "staticcheck", "typecheck", "unused"},
-		},
-		{
-			name: "expand megacheck",
-			cfg: config.Linters{
-				Enable: []string{"megacheck"},
+			desc: "linters and formatters",
+			cfg: &config.Config{
+				Linters: config.Linters{
+					Default: config.GroupNone,
+					Enable:  []string{"gosec"},
+				},
+				Formatters: config.Formatters{
+					Enable: []string{"gofmt"},
+				},
 			},
-			def: nil,
-			exp: []string{"gosimple", "staticcheck", "typecheck", "unused"},
+			expected: []string{"gosec", "gofmt", "typecheck"},
 		},
 		{
-			name: "don't disable anything",
-			def:  []string{"gofmt", "govet", "typecheck"},
-			exp:  []string{"gofmt", "govet", "typecheck"},
-		},
-		{
-			name: "enable gosec by gas alias",
-			cfg: config.Linters{
-				Enable: []string{"gas"},
+			desc: "linters and formatters but linters configuration disables the formatter",
+			cfg: &config.Config{
+				Linters: config.Linters{
+					Default: config.GroupNone,
+					Enable:  []string{"gosec"},
+					Disable: []string{"gofmt"},
+				},
+				Formatters: config.Formatters{
+					Enable: []string{"gofmt"},
+				},
 			},
-			exp: []string{"gosec", "typecheck"},
+			expected: []string{"gosec", "typecheck"},
 		},
 		{
-			name: "enable gosec by primary name",
-			cfg: config.Linters{
-				Enable: []string{"gosec"},
+			desc: "only formatters",
+			cfg: &config.Config{
+				Linters: config.Linters{
+					Default: config.GroupNone,
+				},
+				Formatters: config.Formatters{
+					Enable: []string{"gofmt"},
+				},
 			},
-			exp: []string{"gosec", "typecheck"},
-		},
-		{
-			name: "enable gosec by both names",
-			cfg: config.Linters{
-				Enable: []string{"gosec", "gas"},
-			},
-			exp: []string{"gosec", "typecheck"},
-		},
-		{
-			name: "disable gosec by gas alias",
-			cfg: config.Linters{
-				Disable: []string{"gas"},
-			},
-			def: []string{"gosec"},
-			exp: []string{"typecheck"},
-		},
-		{
-			name: "disable gosec by primary name",
-			cfg: config.Linters{
-				Disable: []string{"gosec"},
-			},
-			def: []string{"gosec"},
-			exp: []string{"typecheck"},
+			expected: []string{"gofmt", "typecheck"},
 		},
 	}
 
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			m, err := NewManager(logutils.NewStderrLog("skip"), &config.Config{Linters: c.cfg}, NewLinterBuilder())
+	for _, test := range testCases {
+		t.Run(test.desc, func(t *testing.T) {
+			m, err := NewManager(logutils.NewStderrLog("skip"), test.cfg, NewLinterBuilder())
 			require.NoError(t, err)
 
-			var defaultLinters []*linter.Config
-			for _, ln := range c.def {
-				lcs := m.GetLinterConfigs(ln)
-				assert.NotNil(t, lcs, ln)
-				defaultLinters = append(defaultLinters, lcs...)
-			}
+			els, err := m.build()
+			require.NoError(t, err)
 
-			els := m.build(defaultLinters)
 			var enabledLinters []string
 			for ln, lc := range els {
 				assert.Equal(t, ln, lc.Name())
 				enabledLinters = append(enabledLinters, ln)
 			}
 
-			assert.ElementsMatch(t, c.exp, enabledLinters)
+			assert.ElementsMatch(t, test.expected, enabledLinters)
 		})
 	}
 }
@@ -191,14 +168,12 @@ func TestManager_combineGoAnalysisLinters(t *testing.T) {
 			desc: "no combined, one linter",
 			linters: map[string]*linter.Config{
 				"foo": {
-					Linter:    fooTyped,
-					InPresets: []string{"A"},
+					Linter: fooTyped,
 				},
 			},
 			expected: map[string]*linter.Config{
 				"foo": {
-					Linter:    fooTyped,
-					InPresets: []string{"A"},
+					Linter: fooTyped,
 				},
 			},
 		},
@@ -206,18 +181,15 @@ func TestManager_combineGoAnalysisLinters(t *testing.T) {
 			desc: "combined, several linters (typed)",
 			linters: map[string]*linter.Config{
 				"foo": {
-					Linter:    fooTyped,
-					InPresets: []string{"A"},
+					Linter: fooTyped,
 				},
 				"bar": {
-					Linter:    barTyped,
-					InPresets: []string{"B"},
+					Linter: barTyped,
 				},
 			},
 			expected: func() map[string]*linter.Config {
 				mlConfig := &linter.Config{
-					Linter:    goanalysis.NewMetaLinter([]*goanalysis.Linter{barTyped, fooTyped}),
-					InPresets: []string{"A", "B"},
+					Linter: goanalysis.NewMetaLinter([]*goanalysis.Linter{barTyped, fooTyped}),
 				}
 
 				return map[string]*linter.Config{
@@ -229,21 +201,18 @@ func TestManager_combineGoAnalysisLinters(t *testing.T) {
 			desc: "combined, several linters (different LoadMode)",
 			linters: map[string]*linter.Config{
 				"foo": {
-					Linter:    fooTyped,
-					InPresets: []string{"A"},
-					LoadMode:  packages.NeedName,
+					Linter:   fooTyped,
+					LoadMode: packages.NeedName,
 				},
 				"bar": {
-					Linter:    barTyped,
-					InPresets: []string{"B"},
-					LoadMode:  packages.NeedTypesSizes,
+					Linter:   barTyped,
+					LoadMode: packages.NeedTypesSizes,
 				},
 			},
 			expected: func() map[string]*linter.Config {
 				mlConfig := &linter.Config{
-					Linter:    goanalysis.NewMetaLinter([]*goanalysis.Linter{barTyped, fooTyped}),
-					InPresets: []string{"A", "B"},
-					LoadMode:  packages.NeedName | packages.NeedTypesSizes,
+					Linter:   goanalysis.NewMetaLinter([]*goanalysis.Linter{barTyped, fooTyped}),
+					LoadMode: packages.NeedName | packages.NeedTypesSizes,
 				}
 
 				return map[string]*linter.Config{
@@ -255,21 +224,18 @@ func TestManager_combineGoAnalysisLinters(t *testing.T) {
 			desc: "combined, several linters (same LoadMode)",
 			linters: map[string]*linter.Config{
 				"foo": {
-					Linter:    fooTyped,
-					InPresets: []string{"A"},
-					LoadMode:  packages.NeedName,
+					Linter:   fooTyped,
+					LoadMode: packages.NeedName,
 				},
 				"bar": {
-					Linter:    barTyped,
-					InPresets: []string{"B"},
-					LoadMode:  packages.NeedName,
+					Linter:   barTyped,
+					LoadMode: packages.NeedName,
 				},
 			},
 			expected: func() map[string]*linter.Config {
 				mlConfig := &linter.Config{
-					Linter:    goanalysis.NewMetaLinter([]*goanalysis.Linter{barTyped, fooTyped}),
-					InPresets: []string{"A", "B"},
-					LoadMode:  packages.NeedName,
+					Linter:   goanalysis.NewMetaLinter([]*goanalysis.Linter{barTyped, fooTyped}),
+					LoadMode: packages.NeedName,
 				}
 
 				return map[string]*linter.Config{
@@ -281,18 +247,15 @@ func TestManager_combineGoAnalysisLinters(t *testing.T) {
 			desc: "combined, several linters (syntax)",
 			linters: map[string]*linter.Config{
 				"foo": {
-					Linter:    fooSyntax,
-					InPresets: []string{"A"},
+					Linter: fooSyntax,
 				},
 				"bar": {
-					Linter:    barSyntax,
-					InPresets: []string{"B"},
+					Linter: barSyntax,
 				},
 			},
 			expected: func() map[string]*linter.Config {
 				mlConfig := &linter.Config{
-					Linter:    goanalysis.NewMetaLinter([]*goanalysis.Linter{barSyntax, fooSyntax}),
-					InPresets: []string{"A", "B"},
+					Linter: goanalysis.NewMetaLinter([]*goanalysis.Linter{barSyntax, fooSyntax}),
 				}
 
 				return map[string]*linter.Config{

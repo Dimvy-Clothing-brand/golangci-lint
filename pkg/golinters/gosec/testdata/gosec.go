@@ -14,11 +14,6 @@ func Gosec() {
 	log.Print(h)
 }
 
-func GosecNolintGas() {
-	h := md5.New() //nolint:gas
-	log.Print(h)
-}
-
 func GosecNolintGosec() {
 	h := md5.New() //nolint:gosec
 	log.Print(h)
@@ -34,5 +29,5 @@ func GosecG204SubprocWithFunc() {
 		return "/tmp/dummy"
 	}
 
-	exec.Command("ls", arg()).Run() // want "G204: Subprocess launched with a potential tainted input or cmd arguments"
+	exec.Command("ls", arg()).Run() // want "G104: Errors unhandled"
 }

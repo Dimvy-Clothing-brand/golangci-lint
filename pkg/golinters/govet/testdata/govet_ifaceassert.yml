@@ -1,4 +1,7 @@
-linters-settings:
-  govet:
-    enable:
-    - ifaceassert
+version: "2"
+
+linters:
+  settings:
+    govet:
+      enable:
+      - ifaceassert

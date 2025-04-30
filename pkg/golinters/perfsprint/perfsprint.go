@@ -4,8 +4,8 @@ import (
 	"github.com/catenacyber/perfsprint/analyzer"
 	"golang.org/x/tools/go/analysis"
 
-	"github.com/golangci/golangci-lint/pkg/config"
-	"github.com/golangci/golangci-lint/pkg/goanalysis"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	"github.com/golangci/golangci-lint/v2/pkg/goanalysis"
 )
 
 func New(settings *config.PerfSprintSettings) *goanalysis.Linter {
@@ -16,6 +16,8 @@ func New(settings *config.PerfSprintSettings) *goanalysis.Linter {
 	}
 
 	if settings != nil {
+		// NOTE: The option `ignore-tests` is not handled because it should be managed with `linters.exclusions.rules`
+
 		cfg[a.Name]["integer-format"] = settings.IntegerFormat
 		cfg[a.Name]["int-conversion"] = settings.IntConversion
 

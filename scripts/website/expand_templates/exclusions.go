@@ -3,22 +3,36 @@ package main
 import (
 	"bytes"
 	"path/filepath"
-	"strings"
 	"text/template"
 
-	"github.com/golangci/golangci-lint/scripts/website/types"
+	"github.com/golangci/golangci-lint/v2/scripts/website/types"
 )
 
-const exclusionTmpl = `{{ $tick := "` + "`" + `" }}
-### {{ .ID }}
+const exclusionTmpl = `{{- $tick := "` + "`" + `" -}}
+{{- range $name, $rules := . }}
+### Preset {{ $tick }}{{ $name }}{{ $tick }}
 
-- linter: {{ $tick }}{{ .Linter }}{{ $tick }}
-- pattern: {{ $tick }}{{ .Pattern }}{{ $tick }}
-- why: {{ .Why }}
-`
+<table>
+    <thead>
+    <tr>
+        <th>Linter</th>
+        <th>Issue Text</th>
+    </tr>
+    </thead>
+    <tbody>
+{{- range $rule := $rules }}
+    <tr>
+        <td>{{ range $linter := $rule.Linters }}{{ $linter }}{{ end }}</td>
+        <td><span class="inline-code">{{ if $rule.Text }}{{ $rule.Text }}{{ end }}</span></td>
+    </tr>
+{{- end }}
+    </tbody>
+</table>
 
-func getDefaultExclusions() (string, error) {
-	defaultExcludePatterns, err := readJSONFile[[]types.ExcludePattern](filepath.Join("assets", "default-exclusions.json"))
+{{ end }}`
+
+func getExclusionPresets() (string, error) {
+	linterExclusionPresets, err := readJSONFile[map[string][]types.ExcludeRule](filepath.Join("assets", "exclusion-presets.json"))
 	if err != nil {
 		return "", err
 	}
@@ -30,18 +44,9 @@ func getDefaultExclusions() (string, error) {
 		return "", err
 	}
 
-	for _, pattern := range defaultExcludePatterns {
-		data := map[string]any{
-			"ID":      pattern.ID,
-			"Linter":  pattern.Linter,
-			"Pattern": strings.ReplaceAll(pattern.Pattern, "`", "&grave;"),
-			"Why":     pattern.Why,
-		}
-
-		err := tmpl.Execute(bufferString, data)
-		if err != nil {
-			return "", err
-		}
+	err = tmpl.Execute(bufferString, linterExclusionPresets)
+	if err != nil {
+		return "", err
 	}
 
 	return bufferString.String(), nil

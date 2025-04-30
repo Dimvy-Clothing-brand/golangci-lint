@@ -1,5 +1,8 @@
-linters-settings:
-  reassign:
-    patterns:
-      - DefaultClient
-      - DefaultTransport
+version: "2"
+
+linters:
+  settings:
+    reassign:
+      patterns:
+        - DefaultClient
+        - DefaultTransport

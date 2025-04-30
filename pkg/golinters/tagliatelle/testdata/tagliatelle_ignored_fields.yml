@@ -1,7 +1,8 @@
-linters-settings:
-  tagliatelle:
-    case:
-      ignored-fields:
-        - CommonServiceFooItem
+version: "2"
 
-
+linters:
+  settings:
+    tagliatelle:
+      case:
+        ignored-fields:
+          - CommonServiceFooItem

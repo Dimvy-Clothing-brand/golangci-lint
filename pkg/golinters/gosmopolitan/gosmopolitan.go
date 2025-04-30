@@ -6,8 +6,8 @@ import (
 	"github.com/xen0n/gosmopolitan"
 	"golang.org/x/tools/go/analysis"
 
-	"github.com/golangci/golangci-lint/pkg/config"
-	"github.com/golangci/golangci-lint/pkg/goanalysis"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	"github.com/golangci/golangci-lint/v2/pkg/goanalysis"
 )
 
 func New(settings *config.GosmopolitanSettings) *goanalysis.Linter {
@@ -18,8 +18,10 @@ func New(settings *config.GosmopolitanSettings) *goanalysis.Linter {
 		cfg[a.Name] = map[string]any{
 			"allowtimelocal":  settings.AllowTimeLocal,
 			"escapehatches":   strings.Join(settings.EscapeHatches, ","),
-			"lookattests":     !settings.IgnoreTests,
 			"watchforscripts": strings.Join(settings.WatchForScripts, ","),
+
+			// Should be managed with `linters.exclusions.rules`.
+			"lookattests": true,
 		}
 	}
 

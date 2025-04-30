@@ -1,4 +1,6 @@
-linters-settings:
-  forbidigo:
-   exclude-godoc-examples: false
+version: "2"
 
+linters:
+  settings:
+    forbidigo:
+     exclude-godoc-examples: false

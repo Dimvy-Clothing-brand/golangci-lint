@@ -1,4 +1,7 @@
-linters-settings:
-  dupword:
-    ignore:
-    - "the"
+version: "2"
+
+linters:
+  settings:
+    dupword:
+      ignore:
+      - "the"

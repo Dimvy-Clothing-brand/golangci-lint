@@ -9,11 +9,11 @@ import (
 
 	"golang.org/x/tools/go/analysis"
 
-	"github.com/golangci/golangci-lint/pkg/config"
-	"github.com/golangci/golangci-lint/pkg/fsutils"
-	"github.com/golangci/golangci-lint/pkg/goanalysis"
-	"github.com/golangci/golangci-lint/pkg/lint/linter"
-	"github.com/golangci/golangci-lint/pkg/logutils"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	"github.com/golangci/golangci-lint/v2/pkg/fsutils"
+	"github.com/golangci/golangci-lint/v2/pkg/goanalysis"
+	"github.com/golangci/golangci-lint/v2/pkg/lint/linter"
+	"github.com/golangci/golangci-lint/v2/pkg/logutils"
 )
 
 const goPluginType = "goplugin"
@@ -40,7 +40,7 @@ func (b *PluginGoBuilder) Build(cfg *config.Config) ([]*linter.Config, error) {
 
 	var linters []*linter.Config
 
-	for name, settings := range cfg.LintersSettings.Custom {
+	for name, settings := range cfg.Linters.Settings.Custom {
 		if settings.Type != goPluginType && settings.Type != "" {
 			continue
 		}
@@ -69,7 +69,7 @@ func (b *PluginGoBuilder) loadConfig(cfg *config.Config, name string, settings *
 		WithLoadMode(goanalysis.LoadModeTypesInfo)
 
 	linterConfig := linter.NewConfig(customLinter).
-		WithEnabledByDefault().
+		WithGroups(config.GroupStandard).
 		WithLoadForGoAnalysis().
 		WithURL(settings.OriginalURL)
 
@@ -83,15 +83,7 @@ func (b *PluginGoBuilder) loadConfig(cfg *config.Config, name string, settings *
 // or the linter does not implement the AnalyzerPlugin interface.
 func (b *PluginGoBuilder) getAnalyzerPlugin(cfg *config.Config, path string, settings any) ([]*analysis.Analyzer, error) {
 	if !filepath.IsAbs(path) {
-		// Hack for compatibility:
-		// the previous default (v1) was `cfg` but `fsutils.GetBasePath` defaults on `wd`.
-		// TODO(ldez): should be removed in v2.
-		relativePathMode := cfg.Run.RelativePathMode
-		if relativePathMode == "" {
-			relativePathMode = fsutils.RelativePathModeCfg
-		}
-
-		basePath, err := fsutils.GetBasePath(context.Background(), relativePathMode, cfg.GetConfigDir())
+		basePath, err := fsutils.GetBasePath(context.Background(), cfg.Run.RelativePathMode, cfg.GetConfigDir())
 		if err != nil {
 			return nil, fmt.Errorf("get base path: %w", err)
 		}

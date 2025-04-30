@@ -8,11 +8,11 @@ import (
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/packages"
 
-	"github.com/golangci/golangci-lint/pkg/goanalysis/pkgerrors"
-	"github.com/golangci/golangci-lint/pkg/lint/linter"
-	"github.com/golangci/golangci-lint/pkg/logutils"
-	"github.com/golangci/golangci-lint/pkg/result"
-	"github.com/golangci/golangci-lint/pkg/timeutils"
+	"github.com/golangci/golangci-lint/v2/pkg/goanalysis/pkgerrors"
+	"github.com/golangci/golangci-lint/v2/pkg/lint/linter"
+	"github.com/golangci/golangci-lint/v2/pkg/logutils"
+	"github.com/golangci/golangci-lint/v2/pkg/result"
+	"github.com/golangci/golangci-lint/v2/pkg/timeutils"
 )
 
 type runAnalyzersConfig interface {
@@ -136,10 +136,16 @@ func buildIssues(diags []Diagnostic, linterNameBuilder func(diag *Diagnostic) st
 
 		if len(diag.Related) > 0 {
 			for _, info := range diag.Related {
+				relatedPos := diag.Pkg.Fset.Position(info.Pos)
+
+				if relatedPos.Filename != diag.Position.Filename {
+					relatedPos = diag.Position
+				}
+
 				issues = append(issues, result.Issue{
 					FromLinter: linterName,
 					Text:       fmt.Sprintf("%s(related information): %s", diag.Analyzer.Name, info.Message),
-					Pos:        diag.Pkg.Fset.Position(info.Pos),
+					Pos:        relatedPos,
 					Pkg:        diag.Pkg,
 				})
 			}

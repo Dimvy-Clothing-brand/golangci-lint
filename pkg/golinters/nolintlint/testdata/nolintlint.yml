@@ -1,4 +1,7 @@
-linters-settings:
-  nolintlint:
-    require-explanation: true
-    require-specific: true
+version: "2"
+
+linters:
+  settings:
+    nolintlint:
+      require-explanation: true
+      require-specific: true

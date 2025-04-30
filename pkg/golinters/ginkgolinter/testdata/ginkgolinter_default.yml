@@ -1,2 +1,5 @@
-linters-settings:
-  ginkgolinter: {}
+version: "2"
+
+linters:
+  settings:
+    ginkgolinter: {}

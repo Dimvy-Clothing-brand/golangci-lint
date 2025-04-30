@@ -1,3 +1,6 @@
-linters-settings:
-  ginkgolinter:
-    suppress-compare-assertion: true
+version: "2"
+
+linters:
+  settings:
+    ginkgolinter:
+      suppress-compare-assertion: true

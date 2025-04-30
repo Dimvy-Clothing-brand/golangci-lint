@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/golangci/golangci-lint/pkg/exitcodes"
-	"github.com/golangci/golangci-lint/pkg/fsutils"
-	"github.com/golangci/golangci-lint/pkg/logutils"
+	"github.com/golangci/golangci-lint/v2/pkg/exitcodes"
+	"github.com/golangci/golangci-lint/v2/pkg/fsutils"
+	"github.com/golangci/golangci-lint/v2/pkg/logutils"
 )
 
 // value: "1"
@@ -279,7 +279,7 @@ type RunnerResult struct {
 func (r *RunnerResult) ExpectNoIssues() {
 	r.tb.Helper()
 
-	assert.Equal(r.tb, "", r.output, "exit code is %d", r.exitCode)
+	assert.Empty(r.tb, r.output, "exit code is %d", r.exitCode)
 	assert.Equal(r.tb, exitcodes.Success, r.exitCode, "output is %s", r.output)
 }
 

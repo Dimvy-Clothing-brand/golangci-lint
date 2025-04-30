@@ -4,17 +4,19 @@ import (
 	"github.com/alexkohler/nakedret/v2"
 	"golang.org/x/tools/go/analysis"
 
-	"github.com/golangci/golangci-lint/pkg/config"
-	"github.com/golangci/golangci-lint/pkg/goanalysis"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	"github.com/golangci/golangci-lint/v2/pkg/goanalysis"
 )
 
 func New(settings *config.NakedretSettings) *goanalysis.Linter {
-	var maxLines uint
+	cfg := &nakedret.NakedReturnRunner{}
+
 	if settings != nil {
-		maxLines = settings.MaxFuncLines
+		// SkipTestFiles is intentionally ignored => should be managed with `linters.exclusions.rules`.
+		cfg.MaxLength = settings.MaxFuncLines
 	}
 
-	a := nakedret.NakedReturnAnalyzer(maxLines, false)
+	a := nakedret.NakedReturnAnalyzer(cfg)
 
 	return goanalysis.NewLinter(
 		a.Name,

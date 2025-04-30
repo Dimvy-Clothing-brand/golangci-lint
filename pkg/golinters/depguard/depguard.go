@@ -6,20 +6,19 @@ import (
 	"github.com/OpenPeeDeeP/depguard/v2"
 	"golang.org/x/tools/go/analysis"
 
-	"github.com/golangci/golangci-lint/pkg/config"
-	"github.com/golangci/golangci-lint/pkg/goanalysis"
-	"github.com/golangci/golangci-lint/pkg/golinters/internal"
-	"github.com/golangci/golangci-lint/pkg/lint/linter"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	"github.com/golangci/golangci-lint/v2/pkg/goanalysis"
+	"github.com/golangci/golangci-lint/v2/pkg/lint/linter"
 )
 
-func New(settings *config.DepGuardSettings, basePath string) *goanalysis.Linter {
+func New(settings *config.DepGuardSettings, replacer *strings.Replacer) *goanalysis.Linter {
 	conf := depguard.LinterSettings{}
 
 	if settings != nil {
 		for s, rule := range settings.Rules {
 			var extendedPatterns []string
 			for _, file := range rule.Files {
-				extendedPatterns = append(extendedPatterns, strings.ReplaceAll(file, internal.PlaceholderBasePath, basePath))
+				extendedPatterns = append(extendedPatterns, replacer.Replace(file))
 			}
 
 			list := &depguard.List{

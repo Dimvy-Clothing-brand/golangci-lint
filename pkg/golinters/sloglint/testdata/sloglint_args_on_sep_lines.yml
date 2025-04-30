@@ -1,3 +1,6 @@
-linters-settings:
-  sloglint:
-    args-on-sep-lines: true
+version: "2"
+
+linters:
+  settings:
+    sloglint:
+      args-on-sep-lines: true

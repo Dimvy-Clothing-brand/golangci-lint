@@ -1,3 +1,6 @@
-linters-settings:
-  errcheck:
-    check-type-assertions: true
+version: "2"
+
+linters:
+  settings:
+    errcheck:
+      check-type-assertions: true

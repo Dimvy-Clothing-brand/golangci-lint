@@ -4,20 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"runtime/debug"
 	"strings"
 
-	"github.com/golangci/golangci-lint/internal/errorutil"
-	"github.com/golangci/golangci-lint/pkg/config"
-	"github.com/golangci/golangci-lint/pkg/fsutils"
-	"github.com/golangci/golangci-lint/pkg/goformatters"
-	"github.com/golangci/golangci-lint/pkg/goutil"
-	"github.com/golangci/golangci-lint/pkg/lint/linter"
-	"github.com/golangci/golangci-lint/pkg/lint/lintersdb"
-	"github.com/golangci/golangci-lint/pkg/logutils"
-	"github.com/golangci/golangci-lint/pkg/result"
-	"github.com/golangci/golangci-lint/pkg/result/processors"
-	"github.com/golangci/golangci-lint/pkg/timeutils"
+	"github.com/golangci/golangci-lint/v2/internal/errorutil"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	"github.com/golangci/golangci-lint/v2/pkg/fsutils"
+	"github.com/golangci/golangci-lint/v2/pkg/goformatters"
+	"github.com/golangci/golangci-lint/v2/pkg/goutil"
+	"github.com/golangci/golangci-lint/v2/pkg/lint/linter"
+	"github.com/golangci/golangci-lint/v2/pkg/lint/lintersdb"
+	"github.com/golangci/golangci-lint/v2/pkg/logutils"
+	"github.com/golangci/golangci-lint/v2/pkg/result"
+	"github.com/golangci/golangci-lint/v2/pkg/result/processors"
+	"github.com/golangci/golangci-lint/v2/pkg/timeutils"
 )
 
 type processorStat struct {
@@ -32,36 +33,16 @@ type Runner struct {
 	Processors []processors.Processor
 }
 
-func NewRunner(log logutils.Log, cfg *config.Config, args []string, goenv *goutil.Env,
+func NewRunner(log logutils.Log, cfg *config.Config, goenv *goutil.Env,
 	lineCache *fsutils.LineCache, fileCache *fsutils.FileCache,
 	dbManager *lintersdb.Manager, lintCtx *linter.Context,
 ) (*Runner, error) {
-	// Beware that some processors need to add the path prefix when working with paths
-	// because they get invoked before the path prefixer (exclude and severity rules)
-	// or process other paths (skip files).
-	files := fsutils.NewFiles(lineCache, cfg.Output.PathPrefix)
-
 	pathRelativity, err := processors.NewPathRelativity(log, cfg.GetBasePath())
 	if err != nil {
 		return nil, fmt.Errorf("error creating path relativity processor: %w", err)
 	}
 
-	exclusionPaths, err := processors.NewExclusionPaths(log, &cfg.Linters.LinterExclusions)
-	if err != nil {
-		return nil, err
-	}
-
-	skipFilesProcessor, err := processors.NewSkipFiles(cfg.Issues.ExcludeFiles, cfg.Output.PathPrefix)
-	if err != nil {
-		return nil, err
-	}
-
-	skipDirs := cfg.Issues.ExcludeDirs
-	if cfg.Issues.UseDefaultExcludeDirs {
-		skipDirs = append(skipDirs, processors.StdExcludeDirRegexps...)
-	}
-
-	skipDirsProcessor, err := processors.NewSkipDirs(log.Child(logutils.DebugKeySkipDirs), skipDirs, args, cfg.Output.PathPrefix)
+	exclusionPaths, err := processors.NewExclusionPaths(log, &cfg.Linters.Exclusions)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +52,19 @@ func NewRunner(log logutils.Log, cfg *config.Config, args []string, goenv *gouti
 		return nil, fmt.Errorf("failed to get enabled linters: %w", err)
 	}
 
-	metaFormatter, err := goformatters.NewMetaFormatter(log, cfg, enabledLinters)
+	var enabledFormatters []string
+	for name := range maps.Keys(enabledLinters) {
+		if goformatters.IsFormatter(name) {
+			enabledFormatters = append(enabledFormatters, name)
+		}
+	}
+
+	formattersCfg := &config.Formatters{
+		Enable:   enabledFormatters,
+		Settings: cfg.Linters.Settings.FormatterSettings,
+	}
+
+	metaFormatter, err := goformatters.NewMetaFormatter(log, formattersCfg, &cfg.Run)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create meta-formatter: %w", err)
 	}
@@ -94,16 +87,11 @@ func NewRunner(log logutils.Log, cfg *config.Config, args []string, goenv *gouti
 
 			// Must be after PathRelativity.
 			exclusionPaths,
-			skipFilesProcessor,
-			skipDirsProcessor,
 
-			processors.NewGeneratedFileFilter(cfg.Linters.LinterExclusions.Generated),
+			processors.NewGeneratedFileFilter(cfg.Linters.Exclusions.Generated),
 
-			// Must be before exclude because users see already marked output and configure excluding by it.
-			processors.NewIdentifierMarker(),
-
-			processors.NewExclusionRules(log.Child(logutils.DebugKeyExclusionRules), files,
-				&cfg.Linters.LinterExclusions, &cfg.Issues),
+			processors.NewExclusionRules(log.Child(logutils.DebugKeyExclusionRules), lineCache,
+				&cfg.Linters.Exclusions),
 
 			processors.NewNolintFilter(log.Child(logutils.DebugKeyNolintFilter), dbManager, enabledLinters),
 
@@ -121,8 +109,8 @@ func NewRunner(log logutils.Log, cfg *config.Config, args []string, goenv *gouti
 			// Now we can modify the issues for output.
 			processors.NewSourceCode(lineCache, log.Child(logutils.DebugKeySourceCode)),
 			processors.NewPathShortener(),
-			processors.NewSeverity(log.Child(logutils.DebugKeySeverityRules), files, &cfg.Severity),
-			processors.NewPathPrettifier(log, cfg.Output.PathPrefix),
+			processors.NewSeverity(log.Child(logutils.DebugKeySeverityRules), lineCache, &cfg.Severity),
+			processors.NewPathPrettifier(log, &cfg.Output),
 			processors.NewSortResults(&cfg.Output),
 		},
 		lintCtx: lintCtx,

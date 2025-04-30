@@ -1,7 +1,10 @@
-linters-settings:
-  testifylint:
-    disable-all: true
-    enable:
-      - require-error
-    require-error:
-      fn-pattern: ^NoError$
+version: "2"
+
+linters:
+  settings:
+    testifylint:
+      disable-all: true
+      enable:
+        - require-error
+      require-error:
+        fn-pattern: ^NoError$

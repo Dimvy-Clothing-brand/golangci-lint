@@ -4,8 +4,8 @@ import (
 	"go-simpler.org/sloglint"
 	"golang.org/x/tools/go/analysis"
 
-	"github.com/golangci/golangci-lint/pkg/config"
-	"github.com/golangci/golangci-lint/pkg/goanalysis"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	"github.com/golangci/golangci-lint/v2/pkg/goanalysis"
 )
 
 func New(settings *config.SlogLintSettings) *goanalysis.Linter {
@@ -18,6 +18,7 @@ func New(settings *config.SlogLintSettings) *goanalysis.Linter {
 			NoGlobal:       settings.NoGlobal,
 			ContextOnly:    settings.Context,
 			StaticMsg:      settings.StaticMsg,
+			MsgStyle:       settings.MsgStyle,
 			NoRawKeys:      settings.NoRawKeys,
 			KeyNamingCase:  settings.KeyNamingCase,
 			ForbiddenKeys:  settings.ForbiddenKeys,

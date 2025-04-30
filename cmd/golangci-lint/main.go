@@ -6,8 +6,8 @@ import (
 	"os"
 	"runtime/debug"
 
-	"github.com/golangci/golangci-lint/pkg/commands"
-	"github.com/golangci/golangci-lint/pkg/exitcodes"
+	"github.com/golangci/golangci-lint/v2/pkg/commands"
+	"github.com/golangci/golangci-lint/v2/pkg/exitcodes"
 )
 
 var (
@@ -64,11 +64,10 @@ func createBuildInfo() commands.BuildInfo {
 		}
 	}
 
-	revision = cmp.Or(revision, "unknown")
-	modified = cmp.Or(modified, "?")
 	info.Date = cmp.Or(info.Date, "(unknown)")
 
-	info.Commit = fmt.Sprintf("(%s, modified: %s, mod sum: %q)", revision, modified, buildInfo.Main.Sum)
+	info.Commit = fmt.Sprintf("(%s, modified: %s, mod sum: %q)",
+		cmp.Or(revision, "unknown"), cmp.Or(modified, "?"), buildInfo.Main.Sum)
 
 	return info
 }

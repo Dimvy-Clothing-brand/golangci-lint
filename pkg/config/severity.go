@@ -8,9 +8,8 @@ import (
 const severityRuleMinConditionsCount = 1
 
 type Severity struct {
-	Default       string         `mapstructure:"default-severity"`
-	CaseSensitive bool           `mapstructure:"case-sensitive"`
-	Rules         []SeverityRule `mapstructure:"rules"`
+	Default string         `mapstructure:"default"`
+	Rules   []SeverityRule `mapstructure:"rules"`
 }
 
 func (s *Severity) Validate() error {
@@ -29,7 +28,7 @@ func (s *Severity) Validate() error {
 
 type SeverityRule struct {
 	BaseRule `mapstructure:",squash"`
-	Severity string
+	Severity string `mapstructure:"severity"`
 }
 
 func (s *SeverityRule) Validate() error {

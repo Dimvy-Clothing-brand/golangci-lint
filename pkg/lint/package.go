@@ -14,12 +14,12 @@ import (
 	"github.com/ldez/grignotin/goenv"
 	"golang.org/x/tools/go/packages"
 
-	"github.com/golangci/golangci-lint/pkg/config"
-	"github.com/golangci/golangci-lint/pkg/exitcodes"
-	"github.com/golangci/golangci-lint/pkg/goanalysis/load"
-	"github.com/golangci/golangci-lint/pkg/goutil"
-	"github.com/golangci/golangci-lint/pkg/lint/linter"
-	"github.com/golangci/golangci-lint/pkg/logutils"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	"github.com/golangci/golangci-lint/v2/pkg/exitcodes"
+	"github.com/golangci/golangci-lint/v2/pkg/goanalysis/load"
+	"github.com/golangci/golangci-lint/v2/pkg/goutil"
+	"github.com/golangci/golangci-lint/v2/pkg/lint/linter"
+	"github.com/golangci/golangci-lint/v2/pkg/logutils"
 )
 
 // PackageLoader loads packages based on [golang.org/x/tools/go/packages.Load].
@@ -39,13 +39,13 @@ type PackageLoader struct {
 }
 
 // NewPackageLoader creates a new PackageLoader.
-func NewPackageLoader(log logutils.Log, cfg *config.Config, args []string, goenv *goutil.Env, loadGuard *load.Guard) *PackageLoader {
+func NewPackageLoader(log logutils.Log, cfg *config.Config, args []string, env *goutil.Env, loadGuard *load.Guard) *PackageLoader {
 	return &PackageLoader{
 		cfg:         cfg,
 		args:        args,
 		log:         log,
 		debugf:      logutils.Debug(logutils.DebugKeyLoader),
-		goenv:       goenv,
+		goenv:       env,
 		pkgTestIDRe: regexp.MustCompile(`^(.*) \[(.*)\.test\]`),
 		loadGuard:   loadGuard,
 	}

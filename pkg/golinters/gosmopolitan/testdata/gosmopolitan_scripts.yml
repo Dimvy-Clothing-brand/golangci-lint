@@ -1,6 +1,9 @@
-linters-settings:
-  gosmopolitan:
-    watch-for-scripts:
-      - Hiragana
-      - Katakana
-      - Latin
+version: "2"
+
+linters:
+  settings:
+    gosmopolitan:
+      watch-for-scripts:
+        - Hiragana
+        - Katakana
+        - Latin

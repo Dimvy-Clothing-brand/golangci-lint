@@ -1,8 +1,11 @@
-linters-settings:
-  forbidigo:
-    analyze-types: true
-    forbid:
-      - p: fmt\.Print.*
-        pkg: ^fmt$
-      - p: time.Sleep
-        msg: no sleeping!
+version: "2"
+
+linters:
+  settings:
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: fmt\.Print.*
+          pkg: ^fmt$
+        - pattern: time.Sleep
+          msg: no sleeping!

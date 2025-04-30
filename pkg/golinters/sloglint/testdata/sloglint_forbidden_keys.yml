@@ -1,4 +1,7 @@
-linters-settings:
-  sloglint:
-    forbidden-keys:
-      - foo_bar
+version: "2"
+
+linters:
+  settings:
+    sloglint:
+      forbidden-keys:
+        - foo_bar

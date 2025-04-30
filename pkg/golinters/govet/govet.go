@@ -24,6 +24,7 @@ import (
 	"golang.org/x/tools/go/analysis/passes/fieldalignment"
 	"golang.org/x/tools/go/analysis/passes/findcall"
 	"golang.org/x/tools/go/analysis/passes/framepointer"
+	"golang.org/x/tools/go/analysis/passes/httpmux"
 	"golang.org/x/tools/go/analysis/passes/httpresponse"
 	"golang.org/x/tools/go/analysis/passes/ifaceassert"
 	_ "golang.org/x/tools/go/analysis/passes/inspect" // unused internal analyzer
@@ -53,9 +54,9 @@ import (
 	"golang.org/x/tools/go/analysis/passes/unusedwrite"
 	"golang.org/x/tools/go/analysis/passes/waitgroup"
 
-	"github.com/golangci/golangci-lint/pkg/config"
-	"github.com/golangci/golangci-lint/pkg/goanalysis"
-	"github.com/golangci/golangci-lint/pkg/logutils"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	"github.com/golangci/golangci-lint/v2/pkg/goanalysis"
+	"github.com/golangci/golangci-lint/v2/pkg/logutils"
 )
 
 var (
@@ -77,6 +78,7 @@ var (
 		fieldalignment.Analyzer,
 		findcall.Analyzer,
 		framepointer.Analyzer,
+		httpmux.Analyzer,
 		httpresponse.Analyzer,
 		ifaceassert.Analyzer,
 		loopclosure.Analyzer,
@@ -187,11 +189,6 @@ func isAnalyzerEnabled(name string, cfg *config.GovetSettings, defaultAnalyzers 
 	// TODO(ldez) remove loopclosure when go1.24
 	if name == loopclosure.Analyzer.Name && config.IsGoGreaterThanOrEqual(cfg.Go, "1.22") {
 		return false
-	}
-
-	// Keeping for backward compatibility.
-	if cfg.CheckShadowing != nil && *cfg.CheckShadowing && name == shadow.Analyzer.Name {
-		return true
 	}
 
 	switch {

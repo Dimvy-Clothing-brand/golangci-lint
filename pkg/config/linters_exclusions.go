@@ -6,9 +6,15 @@ import (
 )
 
 const (
+	GeneratedModeLax     = "lax"
+	GeneratedModeStrict  = "strict"
+	GeneratedModeDisable = "disable"
+)
+
+const (
 	ExclusionPresetComments             = "comments"
-	ExclusionPresetStdErrorHandling     = "stdErrorHandling"
-	ExclusionPresetCommonFalsePositives = "commonFalsePositives"
+	ExclusionPresetStdErrorHandling     = "std-error-handling"
+	ExclusionPresetCommonFalsePositives = "common-false-positives"
 	ExclusionPresetLegacy               = "legacy"
 )
 
@@ -17,7 +23,7 @@ const excludeRuleMinConditionsCount = 2
 type LinterExclusions struct {
 	Generated   string        `mapstructure:"generated"`
 	WarnUnused  bool          `mapstructure:"warn-unused"`
-	Presets     []string      `mapstructure:"preset"`
+	Presets     []string      `mapstructure:"presets"`
 	Rules       []ExcludeRule `mapstructure:"rules"`
 	Paths       []string      `mapstructure:"paths"`
 	PathsExcept []string      `mapstructure:"paths-except"`

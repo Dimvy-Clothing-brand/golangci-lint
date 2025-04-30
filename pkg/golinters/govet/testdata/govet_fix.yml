@@ -1,13 +1,16 @@
-linters-settings:
-  govet:
-    enable:
-      - assign
-      - composites
-      - fieldalignment
-      - findcall
-      - printf
-      - sigchanyzer
-      - sortslice
-      - stringintconv
-      - timeformat
-      - unreachable
+version: "2"
+
+linters:
+  settings:
+    govet:
+      enable:
+        - assign
+        - composites
+        - fieldalignment
+        - findcall
+        - printf
+        - sigchanyzer
+        - sortslice
+        - stringintconv
+        - timeformat
+        - unreachable

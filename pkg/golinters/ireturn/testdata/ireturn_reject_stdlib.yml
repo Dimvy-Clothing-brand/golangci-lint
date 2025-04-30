@@ -1,4 +1,7 @@
-linters-settings:
-  ireturn:
-    reject:
-    - stdlib
+version: "2"
+
+linters:
+  settings:
+    ireturn:
+      reject:
+      - stdlib

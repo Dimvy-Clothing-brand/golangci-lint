@@ -1,4 +1,9 @@
-linters-settings:
-  predeclared:
-    ignore: "real,recover"
-    q: true
+version: "2"
+
+linters:
+  settings:
+    predeclared:
+      ignore:
+        - real
+        - recover
+      qualified-name: true

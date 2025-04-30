@@ -4,9 +4,9 @@ import (
 	"github.com/alingse/asasalint"
 	"golang.org/x/tools/go/analysis"
 
-	"github.com/golangci/golangci-lint/pkg/config"
-	"github.com/golangci/golangci-lint/pkg/goanalysis"
-	"github.com/golangci/golangci-lint/pkg/golinters/internal"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	"github.com/golangci/golangci-lint/v2/pkg/goanalysis"
+	"github.com/golangci/golangci-lint/v2/pkg/golinters/internal"
 )
 
 func New(settings *config.AsasalintSettings) *goanalysis.Linter {
@@ -14,7 +14,9 @@ func New(settings *config.AsasalintSettings) *goanalysis.Linter {
 	if settings != nil {
 		cfg.Exclude = settings.Exclude
 		cfg.NoBuiltinExclusions = !settings.UseBuiltinExclusions
-		cfg.IgnoreTest = settings.IgnoreTest
+
+		// Should be managed with `linters.exclusions.rules`.
+		cfg.IgnoreTest = false
 	}
 
 	a, err := asasalint.NewAnalyzer(cfg)

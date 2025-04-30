@@ -17,12 +17,15 @@ import (
 	"golang.org/x/tools/go/gcexportdata"
 	"golang.org/x/tools/go/packages"
 
-	"github.com/golangci/golangci-lint/pkg/goanalysis/load"
-	"github.com/golangci/golangci-lint/pkg/goutil"
-	"github.com/golangci/golangci-lint/pkg/logutils"
+	"github.com/golangci/golangci-lint/v2/pkg/goanalysis/load"
+	"github.com/golangci/golangci-lint/v2/pkg/goutil"
+	"github.com/golangci/golangci-lint/v2/pkg/logutils"
 )
 
 const unsafePkgName = "unsafe"
+
+// https://github.com/golang/go/blob/go1.23.8/src/internal/types/errors/codes.go#L1484
+const tooNew = 151
 
 type loadingPackage struct {
 	pkg         *packages.Package
@@ -436,6 +439,14 @@ func (lp *loadingPackage) convertError(err error) []packages.Error {
 
 	case types.Error:
 		// from type checker
+
+		// https://github.com/golang/go/blob/go1.23.8/src/go/types/api.go#L52-L57
+		if int(reflect.ValueOf(err).FieldByName("go116code").Int()) == tooNew {
+			// https://github.com/golang/go/blob/go1.23.8/src/go/types/check.go#L380
+			// https://github.com/golang/go/blob/go1.23.8/src/go/types/check.go#L349
+			panic(err.Msg)
+		}
+
 		errs = append(errs, packages.Error{
 			Pos:  err.Fset.Position(err.Pos).String(),
 			Msg:  err.Msg,

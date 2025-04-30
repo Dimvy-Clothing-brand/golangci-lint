@@ -1,6 +1,9 @@
-linters-settings:
-  goheader:
-    template: MY {{title}}
-    values:
-      const:
-        title: TITLE.
+version: "2"
+
+linters:
+  settings:
+    goheader:
+      template: MY {{title}}
+      values:
+        const:
+          title: TITLE.

@@ -5,17 +5,18 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/golangci/golangci-lint/pkg/config"
-	"github.com/golangci/golangci-lint/pkg/fsutils"
-	"github.com/golangci/golangci-lint/pkg/logutils"
-	"github.com/golangci/golangci-lint/pkg/result"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	"github.com/golangci/golangci-lint/v2/pkg/fsutils"
+	"github.com/golangci/golangci-lint/v2/pkg/logutils"
+	"github.com/golangci/golangci-lint/v2/pkg/result"
 )
 
 var _ Processor = (*ExclusionRules)(nil)
 
 type ExclusionRules struct {
-	log   logutils.Log
-	files *fsutils.Files
+	log logutils.Log
+
+	lines *fsutils.LineCache
 
 	warnUnused     bool
 	skippedCounter map[string]int
@@ -23,43 +24,17 @@ type ExclusionRules struct {
 	rules []excludeRule
 }
 
-func NewExclusionRules(log logutils.Log, files *fsutils.Files,
-	cfg *config.LinterExclusions, oldCfg *config.Issues) *ExclusionRules {
+func NewExclusionRules(log logutils.Log, lines *fsutils.LineCache, cfg *config.LinterExclusions) *ExclusionRules {
 	p := &ExclusionRules{
 		log:            log,
-		files:          files,
+		lines:          lines,
 		warnUnused:     cfg.WarnUnused,
 		skippedCounter: map[string]int{},
 	}
 
-	// TODO(ldez) remove prefix in v2: the matching must be case sensitive, users can add `(?i)` inside the patterns if needed.
-	prefix := caseInsensitivePrefix
-	if oldCfg.ExcludeCaseSensitive {
-		prefix = ""
-	}
+	excludeRules := slices.Concat(slices.Clone(cfg.Rules), getLinterExclusionPresets(cfg.Presets))
 
-	excludeRules := slices.Concat(slices.Clone(cfg.Rules),
-		filterInclude(getLinterExclusionPresets(cfg.Presets), oldCfg.IncludeDefaultExcludes))
-
-	p.rules = parseRules(excludeRules, prefix, newExcludeRule)
-
-	// TODO(ldez): should be removed in v2.
-	for _, pattern := range oldCfg.ExcludePatterns {
-		if pattern == "" {
-			continue
-		}
-
-		r := &config.ExcludeRule{
-			BaseRule: config.BaseRule{
-				Path: `.+\.go`,
-				Text: pattern,
-			},
-		}
-
-		rule := newExcludeRule(r, prefix)
-
-		p.rules = append(p.rules, rule)
-	}
+	p.rules = parseRules(excludeRules, "", newExcludeRule)
 
 	for _, rule := range p.rules {
 		if rule.internalReference == "" {
@@ -81,7 +56,7 @@ func (p *ExclusionRules) Process(issues []result.Issue) ([]result.Issue, error) 
 
 	return filterIssues(issues, func(issue *result.Issue) bool {
 		for _, rule := range p.rules {
-			if !rule.match(issue, p.files, p.log) {
+			if !rule.match(issue, p.lines, p.log) {
 				continue
 			}
 
@@ -145,20 +120,4 @@ func (e excludeRule) String() string {
 	}
 
 	return strings.Join(msg, ", ")
-}
-
-// TODO(ldez): must be removed in v2, only for compatibility with exclude-use-default/include.
-func filterInclude(rules []config.ExcludeRule, refs []string) []config.ExcludeRule {
-	if len(refs) == 0 {
-		return rules
-	}
-
-	var filteredRules []config.ExcludeRule
-	for _, rule := range rules {
-		if !slices.Contains(refs, rule.InternalReference) {
-			filteredRules = append(filteredRules, rule)
-		}
-	}
-
-	return filteredRules
 }

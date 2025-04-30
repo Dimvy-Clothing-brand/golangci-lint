@@ -1,11 +1,11 @@
 package fatcontext
 
 import (
-	"github.com/Crocmagnon/fatcontext/pkg/analyzer"
+	"go.augendre.info/fatcontext/pkg/analyzer"
 	"golang.org/x/tools/go/analysis"
 
-	"github.com/golangci/golangci-lint/pkg/config"
-	"github.com/golangci/golangci-lint/pkg/goanalysis"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	"github.com/golangci/golangci-lint/v2/pkg/goanalysis"
 )
 
 func New(settings *config.FatcontextSettings) *goanalysis.Linter {

@@ -1,3 +1,6 @@
-linters-settings:
-  exhaustive:
-    ignore-enum-members: "West$"
+version: "2"
+
+linters:
+  settings:
+    exhaustive:
+      ignore-enum-members: "West$"

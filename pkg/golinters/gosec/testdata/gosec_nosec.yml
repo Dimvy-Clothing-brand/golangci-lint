@@ -1,5 +1,8 @@
-linters-settings:
-  gosec:
-    config:
-      global:
-        nosec: false
+version: "2"
+
+linters:
+  settings:
+    gosec:
+      config:
+        global:
+          nosec: false

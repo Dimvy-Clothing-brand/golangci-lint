@@ -13,23 +13,31 @@ import (
 	"github.com/ldez/grignotin/goenv"
 	"github.com/ldez/grignotin/gomod"
 	"golang.org/x/mod/modfile"
+
+	"github.com/golangci/golangci-lint/v2/pkg/logutils"
 )
+
+// defaultGoVersion the value should be "oldstable" - 1.
+// If the current stable version is 1.24 then 1.23 - 1 = 1.22.
+const defaultGoVersion = "1.22"
 
 // Config encapsulates the config data specified in the golangci-lint YAML config file.
 type Config struct {
 	cfgDir   string // Path to the directory containing golangci-lint config file.
 	basePath string // Path the root directory related to [Run.RelativePathMode].
 
-	Version string `mapstructure:"version"` // From v2, to be able to detect v2 config file.
+	Version string `mapstructure:"version"`
 
 	Run Run `mapstructure:"run"`
 
 	Output Output `mapstructure:"output"`
 
-	LintersSettings LintersSettings `mapstructure:"linters-settings"`
-	Linters         Linters         `mapstructure:"linters"`
-	Issues          Issues          `mapstructure:"issues"`
-	Severity        Severity        `mapstructure:"severity"`
+	Linters Linters `mapstructure:"linters"`
+
+	Issues   Issues   `mapstructure:"issues"`
+	Severity Severity `mapstructure:"severity"`
+
+	Formatters Formatters `mapstructure:"formatters"`
 
 	InternalCmdTest bool // Option is used only for testing golangci-lint command, don't use it
 	InternalTest    bool // Option is used only for testing golangci-lint code, don't use it
@@ -40,17 +48,25 @@ func (c *Config) GetConfigDir() string {
 	return c.cfgDir
 }
 
+// SetConfigDir sets the path to directory that contains golangci-lint config file.
+func (c *Config) SetConfigDir(dir string) {
+	c.cfgDir = dir
+}
+
 func (c *Config) GetBasePath() string {
 	return c.basePath
+}
+
+func (c *Config) IsInternalTest() bool {
+	return c.InternalTest
 }
 
 func (c *Config) Validate() error {
 	validators := []func() error{
 		c.Run.Validate,
 		c.Output.Validate,
-		c.LintersSettings.Validate,
 		c.Linters.Validate,
-		c.Issues.Validate,
+		c.Formatters.Validate,
 		c.Severity.Validate,
 	}
 
@@ -65,13 +81,13 @@ func (c *Config) Validate() error {
 
 func NewDefault() *Config {
 	return &Config{
-		LintersSettings: defaultLintersSettings,
+		Linters: Linters{
+			Settings: defaultLintersSettings,
+		},
+		Formatters: Formatters{
+			Settings: defaultFormatterSettings,
+		},
 	}
-}
-
-type Version struct {
-	Format string `mapstructure:"format"`
-	Debug  bool   `mapstructure:"debug"`
 }
 
 func IsGoGreaterThanOrEqual(current, limit string) bool {
@@ -88,8 +104,8 @@ func IsGoGreaterThanOrEqual(current, limit string) bool {
 	return v1.GreaterThanOrEqual(l)
 }
 
-func detectGoVersion(ctx context.Context) string {
-	return cmp.Or(detectGoVersionFromGoMod(ctx), "1.17")
+func detectGoVersion(ctx context.Context, log logutils.Log) string {
+	return cmp.Or(detectGoVersionFromGoMod(ctx, log), defaultGoVersion)
 }
 
 // detectGoVersionFromGoMod tries to get Go version from go.mod.
@@ -97,7 +113,7 @@ func detectGoVersion(ctx context.Context) string {
 // else it returns `go` version if present,
 // else it returns `GOVERSION` version if present,
 // else it returns empty.
-func detectGoVersionFromGoMod(ctx context.Context) string {
+func detectGoVersionFromGoMod(ctx context.Context, log logutils.Log) string {
 	values, err := goenv.Get(ctx, goenv.GOMOD, goenv.GOVERSION)
 	if err != nil {
 		values = map[string]string{
@@ -112,6 +128,10 @@ func detectGoVersionFromGoMod(ctx context.Context) string {
 	file, err := parseGoMod(values[goenv.GOMOD])
 	if err != nil {
 		return parseGoVersion(values[goenv.GOVERSION])
+	}
+
+	if file.Module != nil {
+		log.Infof("Module name %q", file.Module.Mod.Path)
 	}
 
 	// The toolchain exists only if 'toolchain' version > 'go' version.

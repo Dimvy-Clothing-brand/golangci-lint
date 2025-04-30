@@ -1,4 +1,5 @@
 //golangcitest:args -Estaticcheck
+//golangcitest:config_path testdata/staticcheck.yml
 package testdata
 
 import (
@@ -14,11 +15,6 @@ func Staticcheck() {
 func StaticcheckNolintStaticcheck() {
 	var x int
 	x = x //nolint:staticcheck
-}
-
-func StaticcheckNolintMegacheck() {
-	var x int
-	x = x //nolint:megacheck
 }
 
 func StaticcheckPrintf() {

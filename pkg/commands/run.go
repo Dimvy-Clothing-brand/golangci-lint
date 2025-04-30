@@ -21,29 +21,31 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/gofrs/flock"
+	"github.com/ldez/grignotin/goenv"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/automaxprocs/maxprocs"
+	"golang.org/x/mod/sumdb/dirhash"
 	"gopkg.in/yaml.v3"
 
-	"github.com/golangci/golangci-lint/internal/cache"
-	"github.com/golangci/golangci-lint/pkg/config"
-	"github.com/golangci/golangci-lint/pkg/exitcodes"
-	"github.com/golangci/golangci-lint/pkg/fsutils"
-	"github.com/golangci/golangci-lint/pkg/goanalysis/load"
-	"github.com/golangci/golangci-lint/pkg/goutil"
-	"github.com/golangci/golangci-lint/pkg/lint"
-	"github.com/golangci/golangci-lint/pkg/lint/linter"
-	"github.com/golangci/golangci-lint/pkg/lint/lintersdb"
-	"github.com/golangci/golangci-lint/pkg/logutils"
-	"github.com/golangci/golangci-lint/pkg/printers"
-	"github.com/golangci/golangci-lint/pkg/report"
-	"github.com/golangci/golangci-lint/pkg/result"
-	"github.com/golangci/golangci-lint/pkg/timeutils"
+	"github.com/golangci/golangci-lint/v2/internal/cache"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	"github.com/golangci/golangci-lint/v2/pkg/exitcodes"
+	"github.com/golangci/golangci-lint/v2/pkg/fsutils"
+	"github.com/golangci/golangci-lint/v2/pkg/goanalysis/load"
+	"github.com/golangci/golangci-lint/v2/pkg/goutil"
+	"github.com/golangci/golangci-lint/v2/pkg/lint"
+	"github.com/golangci/golangci-lint/v2/pkg/lint/linter"
+	"github.com/golangci/golangci-lint/v2/pkg/lint/lintersdb"
+	"github.com/golangci/golangci-lint/v2/pkg/logutils"
+	"github.com/golangci/golangci-lint/v2/pkg/printers"
+	"github.com/golangci/golangci-lint/v2/pkg/report"
+	"github.com/golangci/golangci-lint/v2/pkg/result"
+	"github.com/golangci/golangci-lint/v2/pkg/timeutils"
 )
 
-const defaultTimeout = time.Minute
+const defaultTimeout = 0 * time.Minute
 
 const (
 	// envFailOnWarnings value: "1"
@@ -53,8 +55,6 @@ const (
 )
 
 const (
-	// envHelpRun value: "1".
-	envHelpRun        = "HELP_RUN"
 	envMemProfileRate = "GL_MEM_PROFILE_RATE"
 )
 
@@ -153,7 +153,7 @@ func (c *runCommand) persistentPreRunE(cmd *cobra.Command, args []string) error 
 
 	c.log.Infof("%s", c.buildInfo.String())
 
-	loader := config.NewLoader(c.log.Child(logutils.DebugKeyConfigReader), c.viper, cmd.Flags(), c.opts.LoaderOptions, c.cfg, args)
+	loader := config.NewLintersLoader(c.log.Child(logutils.DebugKeyConfigReader), c.viper, cmd.Flags(), c.opts.LoaderOptions, c.cfg, args)
 
 	err := loader.Load(config.LoadOptions{CheckDeprecation: true, Validation: true})
 	if err != nil {
@@ -161,6 +161,7 @@ func (c *runCommand) persistentPreRunE(cmd *cobra.Command, args []string) error 
 	}
 
 	if c.cfg.Run.Concurrency == 0 {
+		// `runtime.GOMAXPROCS` defaults to the value of `runtime.NumCPU`.
 		backup := runtime.GOMAXPROCS(0)
 
 		// Automatically set GOMAXPROCS to match Linux container CPU quota.
@@ -186,10 +187,6 @@ func (c *runCommand) persistentPostRunE(_ *cobra.Command, _ []string) error {
 }
 
 func (c *runCommand) preRunE(_ *cobra.Command, args []string) error {
-	if c.cfg.GetConfigDir() != "" && c.cfg.Version != "" {
-		return errors.New("you are using a configuration file for golangci-lint v2 with golangci-lint v1: please use golangci-lint v2")
-	}
-
 	dbManager, err := lintersdb.NewManager(c.log.Child(logutils.DebugKeyLintersDB), c.cfg,
 		lintersdb.NewLinterBuilder(), lintersdb.NewPluginModuleBuilder(c.log), lintersdb.NewPluginGoBuilder(c.log))
 	if err != nil {
@@ -198,12 +195,10 @@ func (c *runCommand) preRunE(_ *cobra.Command, args []string) error {
 
 	c.dbManager = dbManager
 
-	printer, err := printers.NewPrinter(c.log, &c.cfg.Output, c.reportData, c.cfg.GetBasePath())
+	c.printer, err = printers.NewPrinter(c.log, &c.cfg.Output.Formats, c.reportData, c.cfg.GetBasePath())
 	if err != nil {
 		return err
 	}
-
-	c.printer = printer
 
 	c.goenv = goutil.NewEnv(c.log.Child(logutils.DebugKeyGoEnv))
 
@@ -223,7 +218,7 @@ func (c *runCommand) preRunE(_ *cobra.Command, args []string) error {
 
 	c.contextBuilder = lint.NewContextBuilder(c.cfg, pkgLoader, pkgCache, guard)
 
-	if err = initHashSalt(c.buildInfo.Version, c.cfg); err != nil {
+	if err = initHashSalt(c.log.Child(logutils.DebugKeyGoModSalt), c.buildInfo.Version, c.cfg); err != nil {
 		return fmt.Errorf("failed to init hash salt: %w", err)
 	}
 
@@ -238,7 +233,7 @@ func (c *runCommand) postRun(_ *cobra.Command, _ []string) {
 	c.releaseFileLock()
 }
 
-func (c *runCommand) execute(_ *cobra.Command, args []string) {
+func (c *runCommand) execute(_ *cobra.Command, _ []string) {
 	needTrackResources := logutils.IsVerbose() || c.opts.PrintResourcesUsage
 
 	trackResourcesEndCh := make(chan struct{})
@@ -251,18 +246,17 @@ func (c *runCommand) execute(_ *cobra.Command, args []string) {
 		}
 	}()
 
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 	if c.cfg.Run.Timeout > 0 {
-		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, c.cfg.Run.Timeout)
-		defer cancel()
 	}
+	defer cancel()
 
 	if needTrackResources {
 		go watchResources(ctx, trackResourcesEndCh, c.log, c.debugf)
 	}
 
-	if err := c.runAndPrint(ctx, args); err != nil {
+	if err := c.runAndPrint(ctx); err != nil {
 		c.log.Errorf("Running error: %s", err)
 		if c.exitCode == exitcodes.Success {
 			var exitErr *exitcodes.ExitError
@@ -335,7 +329,7 @@ func (c *runCommand) stopTracing() error {
 	return nil
 }
 
-func (c *runCommand) runAndPrint(ctx context.Context, args []string) error {
+func (c *runCommand) runAndPrint(ctx context.Context) error {
 	if err := c.goenv.Discover(ctx); err != nil {
 		c.log.Warnf("Failed to discover go env: %s", err)
 	}
@@ -356,7 +350,7 @@ func (c *runCommand) runAndPrint(ctx context.Context, args []string) error {
 
 	c.printDeprecatedLinterMessages(enabledLintersMap)
 
-	issues, err := c.runAnalysis(ctx, args)
+	issues, err := c.runAnalysis(ctx)
 	if err != nil {
 		return err // XXX: don't lose type
 	}
@@ -364,7 +358,7 @@ func (c *runCommand) runAndPrint(ctx context.Context, args []string) error {
 	// Fills linters information for the JSON printer.
 	for _, lc := range c.dbManager.GetAllSupportedLinterConfigs() {
 		isEnabled := enabledLintersMap[lc.Name()] != nil
-		c.reportData.AddLinter(lc.Name(), isEnabled, lc.EnabledByDefault)
+		c.reportData.AddLinter(lc.Name(), isEnabled)
 	}
 
 	err = c.printer.Print(issues)
@@ -382,7 +376,7 @@ func (c *runCommand) runAndPrint(ctx context.Context, args []string) error {
 }
 
 // runAnalysis executes the linters that have been enabled in the configuration.
-func (c *runCommand) runAnalysis(ctx context.Context, args []string) ([]result.Issue, error) {
+func (c *runCommand) runAnalysis(ctx context.Context) ([]result.Issue, error) {
 	lintersToRun, err := c.dbManager.GetOptimizedLinters()
 	if err != nil {
 		return nil, err
@@ -393,7 +387,7 @@ func (c *runCommand) runAnalysis(ctx context.Context, args []string) ([]result.I
 		return nil, fmt.Errorf("context loading failed: %w", err)
 	}
 
-	runner, err := lint.NewRunner(c.log.Child(logutils.DebugKeyRunner), c.cfg, args,
+	runner, err := lint.NewRunner(c.log.Child(logutils.DebugKeyRunner), c.cfg,
 		c.goenv, c.lineCache, c.fileCache, c.dbManager, lintCtx)
 	if err != nil {
 		return nil, err
@@ -596,16 +590,6 @@ func setupRunPersistentFlags(fs *pflag.FlagSet, opts *runOptions) {
 	fs.StringVar(&opts.TracePath, "trace-path", "", color.GreenString("Path to trace output file"))
 }
 
-func getDefaultConcurrency() int {
-	if os.Getenv(envHelpRun) == "1" {
-		// Make stable concurrency for generating help documentation.
-		const prettyConcurrency = 8
-		return prettyConcurrency
-	}
-
-	return runtime.NumCPU()
-}
-
 func printMemStats(ms *runtime.MemStats, logger logutils.Log) {
 	logger.Infof("Mem stats: alloc=%s total_alloc=%s sys=%s "+
 		"heap_alloc=%s heap_sys=%s heap_idle=%s heap_released=%s heap_in_use=%s "+
@@ -636,7 +620,7 @@ func formatMemory(memBytes uint64) string {
 
 // Related to cache.
 
-func initHashSalt(version string, cfg *config.Config) error {
+func initHashSalt(logger logutils.Log, version string, cfg *config.Config) error {
 	binSalt, err := computeBinarySalt(version)
 	if err != nil {
 		return fmt.Errorf("failed to calculate binary salt: %w", err)
@@ -647,9 +631,18 @@ func initHashSalt(version string, cfg *config.Config) error {
 		return fmt.Errorf("failed to calculate config salt: %w", err)
 	}
 
+	goModSalt, err := computeGoModSalt()
+	if err != nil {
+		// NOTE: missing go.mod must be ignored.
+		logger.Warnf("Failed to calculate go.mod salt: %v", err)
+	}
+
 	b := bytes.NewBuffer(binSalt)
 	b.Write(configSalt)
+	b.WriteString(goModSalt)
+
 	cache.SetSalt(b)
+
 	return nil
 }
 
@@ -666,15 +659,19 @@ func computeBinarySalt(version string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	f, err := os.Open(p)
 	if err != nil {
 		return nil, err
 	}
+
 	defer f.Close()
+
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
 		return nil, err
 	}
+
 	return h.Sum(nil), nil
 }
 
@@ -683,12 +680,12 @@ func computeBinarySalt(version string) ([]byte, error) {
 // At least, it has a huge impact on tests speed.
 // Fields: `LintersSettings` and `Run.BuildTags`.
 func computeConfigSalt(cfg *config.Config) ([]byte, error) {
-	lintersSettingsBytes, err := yaml.Marshal(cfg.LintersSettings)
+	lintersSettingsBytes, err := yaml.Marshal(cfg.Linters.Settings)
 	if err != nil {
 		return nil, fmt.Errorf("failed to JSON marshal config linter settings: %w", err)
 	}
 
-	configData := bytes.NewBufferString("linters-settings=")
+	configData := bytes.NewBufferString("linters.settings=")
 	configData.Write(lintersSettingsBytes)
 	configData.WriteString("\nbuild-tags=%s" + strings.Join(cfg.Run.BuildTags, ","))
 
@@ -696,5 +693,29 @@ func computeConfigSalt(cfg *config.Config) ([]byte, error) {
 	if _, err := h.Write(configData.Bytes()); err != nil {
 		return nil, err
 	}
+
 	return h.Sum(nil), nil
+}
+
+func computeGoModSalt() (string, error) {
+	values, err := goenv.Get(context.Background(), goenv.GOMOD)
+	if err != nil {
+		return "", fmt.Errorf("failed to get goenv: %w", err)
+	}
+
+	goModPath := filepath.Clean(values[goenv.GOMOD])
+
+	data, err := os.ReadFile(goModPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read go.mod: %w", err)
+	}
+
+	sum, err := dirhash.Hash1([]string{goModPath}, func(string) (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewReader(data)), nil
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to compute go.sum: %w", err)
+	}
+
+	return sum, nil
 }

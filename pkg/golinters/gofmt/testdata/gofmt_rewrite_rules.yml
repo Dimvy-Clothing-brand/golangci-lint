@@ -1,7 +1,12 @@
-linters-settings:
-  gofmt:
-    rewrite-rules:
-      - pattern: 'interface{}'
-        replacement: 'any'
-      - pattern: 'a[b:len(a)]'
-        replacement: 'a[b:]'
+version: "2"
+
+formatters:
+  enable:
+    - gofmt
+  settings:
+    gofmt:
+      rewrite-rules:
+        - pattern: 'interface{}'
+          replacement: 'any'
+        - pattern: 'a[b:len(a)]'
+          replacement: 'a[b:]'

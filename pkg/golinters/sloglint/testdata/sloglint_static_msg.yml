@@ -1,3 +1,6 @@
-linters-settings:
-  sloglint:
-    static-msg: true
+version: "2"
+
+linters:
+  settings:
+    sloglint:
+      static-msg: true

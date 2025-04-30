@@ -4,16 +4,15 @@ import (
 	mnd "github.com/tommy-muehle/go-mnd/v2"
 	"golang.org/x/tools/go/analysis"
 
-	"github.com/golangci/golangci-lint/pkg/config"
-	"github.com/golangci/golangci-lint/pkg/goanalysis"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	"github.com/golangci/golangci-lint/v2/pkg/goanalysis"
 )
 
 func New(settings *config.MndSettings) *goanalysis.Linter {
-	return newMND(mnd.Analyzer, settings, nil)
-}
+	a := mnd.Analyzer
 
-func newMND(a *analysis.Analyzer, settings *config.MndSettings, linterCfg map[string]map[string]any) *goanalysis.Linter {
-	if len(linterCfg) == 0 && settings != nil {
+	var linterCfg map[string]map[string]any
+	if settings != nil {
 		cfg := make(map[string]any)
 		if len(settings.Checks) > 0 {
 			cfg["checks"] = settings.Checks

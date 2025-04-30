@@ -1,4 +1,7 @@
-linters-settings:
-  iface:
-    enable:
-      - identical
+version: "2"
+
+linters:
+  settings:
+    iface:
+      enable:
+        - identical

@@ -4,8 +4,8 @@ import (
 	"github.com/Antonboom/testifylint/analyzer"
 	"golang.org/x/tools/go/analysis"
 
-	"github.com/golangci/golangci-lint/pkg/config"
-	"github.com/golangci/golangci-lint/pkg/goanalysis"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	"github.com/golangci/golangci-lint/v2/pkg/goanalysis"
 )
 
 func New(settings *config.TestifylintSettings) *goanalysis.Linter {
@@ -19,6 +19,7 @@ func New(settings *config.TestifylintSettings) *goanalysis.Linter {
 
 			"bool-compare.ignore-custom-types": settings.BoolCompare.IgnoreCustomTypes,
 			"formatter.require-f-funcs":        settings.Formatter.RequireFFuncs,
+			"formatter.require-string-msg":     settings.Formatter.RequireStringMsg,
 			"go-require.ignore-http-handlers":  settings.GoRequire.IgnoreHTTPHandlers,
 		}
 		if len(settings.EnabledCheckers) > 0 {

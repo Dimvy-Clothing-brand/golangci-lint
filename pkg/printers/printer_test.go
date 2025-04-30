@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/golangci/golangci-lint/pkg/config"
-	"github.com/golangci/golangci-lint/pkg/logutils"
-	"github.com/golangci/golangci-lint/pkg/report"
-	"github.com/golangci/golangci-lint/pkg/result"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	"github.com/golangci/golangci-lint/v2/pkg/logutils"
+	"github.com/golangci/golangci-lint/v2/pkg/report"
+	"github.com/golangci/golangci-lint/v2/pkg/result"
 )
 
 func unmarshalFile(t *testing.T, filename string, v any) {
@@ -37,25 +37,20 @@ func TestPrinter_Print_stdout(t *testing.T) {
 
 	testCases := []struct {
 		desc     string
-		cfg      *config.Output
+		cfg      *config.Formats
 		expected string
 	}{
 		{
-			desc: "stdout (implicit)",
-			cfg: &config.Output{
-				Formats: []config.OutputFormat{
-					{Format: "line-number"},
-				},
-			},
+			desc:     "stdout (implicit)",
+			cfg:      &config.Formats{},
 			expected: "golden-line-number.txt",
 		},
 		{
 			desc: "stdout (explicit)",
-			cfg: &config.Output{
-				Formats: []config.OutputFormat{
-					{
-						Format: "line-number",
-						Path:   "stdout",
+			cfg: &config.Formats{
+				Text: config.Text{
+					SimpleFormat: config.SimpleFormat{
+						Path: "stdout",
 					},
 				},
 			},
@@ -97,11 +92,10 @@ func TestPrinter_Print_stderr(t *testing.T) {
 	data := &report.Data{}
 	unmarshalFile(t, "in-report-data.json", data)
 
-	cfg := &config.Output{
-		Formats: []config.OutputFormat{
-			{
-				Format: "line-number",
-				Path:   "stderr",
+	cfg := &config.Formats{
+		Text: config.Text{
+			SimpleFormat: config.SimpleFormat{
+				Path: "stderr",
 			},
 		},
 	}
@@ -136,11 +130,10 @@ func TestPrinter_Print_file(t *testing.T) {
 
 	outputPath := filepath.Join(t.TempDir(), "report.txt")
 
-	cfg := &config.Output{
-		Formats: []config.OutputFormat{
-			{
-				Format: "line-number",
-				Path:   outputPath,
+	cfg := &config.Formats{
+		Text: config.Text{
+			SimpleFormat: config.SimpleFormat{
+				Path: outputPath,
 			},
 		},
 	}
@@ -180,19 +173,16 @@ func TestPrinter_Print_multiple(t *testing.T) {
 
 	outputPath := filepath.Join(t.TempDir(), "teamcity.txt")
 
-	cfg := &config.Output{
-		Formats: []config.OutputFormat{
-			{
-				Format: "teamcity",
-				Path:   outputPath,
-			},
-			{
-				Format: "json",
-				Path:   "",
-			},
-			{
-				Format: "line-number",
-				Path:   "stderr",
+	cfg := &config.Formats{
+		TeamCity: config.SimpleFormat{
+			Path: outputPath,
+		},
+		JSON: config.SimpleFormat{
+			Path: "stdout",
+		},
+		Text: config.Text{
+			SimpleFormat: config.SimpleFormat{
+				Path: "stderr",
 			},
 		},
 	}

@@ -2,8 +2,8 @@ package fsutils
 
 import (
 	"bytes"
+	"cmp"
 	"context"
-	"errors"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -19,15 +19,15 @@ const (
 	RelativePathModeWd      = "wd"
 )
 
+// OutputPathModeAbsolute path mode used to show absolute paths in output reports (user-facing).
+const OutputPathModeAbsolute = "abs"
+
 func AllRelativePathModes() []string {
 	return []string{RelativePathModeGoMod, RelativePathModeGitRoot, RelativePathModeCfg, RelativePathModeWd}
 }
 
 func GetBasePath(ctx context.Context, mode, cfgDir string) (string, error) {
-	if mode == "" {
-		// TODO(ldez): v2 the default should be cfg or gomod.
-		mode = RelativePathModeWd
-	}
+	mode = cmp.Or(mode, RelativePathModeCfg)
 
 	switch mode {
 	case RelativePathModeCfg:
@@ -62,7 +62,7 @@ func GetBasePath(ctx context.Context, mode, cfgDir string) (string, error) {
 		return wd, nil
 
 	default:
-		return "", errors.New("unknown relative path mode")
+		return "", fmt.Errorf("unknown relative path mode: %s", mode)
 	}
 }
 

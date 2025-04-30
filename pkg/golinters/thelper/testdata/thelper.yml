@@ -1,5 +1,8 @@
-linters-settings:
-  thelper:
-    test:
-      name: false
-      begin: true
+version: "2"
+
+linters:
+  settings:
+    thelper:
+      test:
+        name: false
+        begin: true

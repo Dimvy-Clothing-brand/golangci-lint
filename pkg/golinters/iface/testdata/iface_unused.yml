@@ -1,4 +1,7 @@
-linters-settings:
-  iface:
-    enable:
-      - unused
+version: "2"
+
+linters:
+  settings:
+    iface:
+      enable:
+        - unused

@@ -1,3 +1,8 @@
-linters-settings:
-  gofmt:
-    simplify: false
+version: "2"
+
+formatters:
+  enable:
+    - gofmt
+  settings:
+    gofmt:
+      simplify: false

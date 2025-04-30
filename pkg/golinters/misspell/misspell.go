@@ -10,9 +10,9 @@ import (
 	"github.com/golangci/misspell"
 	"golang.org/x/tools/go/analysis"
 
-	"github.com/golangci/golangci-lint/pkg/config"
-	"github.com/golangci/golangci-lint/pkg/goanalysis"
-	"github.com/golangci/golangci-lint/pkg/golinters/internal"
+	"github.com/golangci/golangci-lint/v2/pkg/config"
+	"github.com/golangci/golangci-lint/v2/pkg/goanalysis"
+	"github.com/golangci/golangci-lint/v2/pkg/golinters/internal"
 )
 
 const linterName = "misspell"
@@ -68,8 +68,8 @@ func createMisspellReplacer(settings *config.MisspellSettings) (*misspell.Replac
 		return nil, fmt.Errorf("process extra words: %w", err)
 	}
 
-	if len(settings.IgnoreWords) != 0 {
-		replacer.RemoveRule(settings.IgnoreWords)
+	if len(settings.IgnoreRules) != 0 {
+		replacer.RemoveRule(settings.IgnoreRules)
 	}
 
 	// It can panic.
